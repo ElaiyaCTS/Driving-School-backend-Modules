@@ -103,7 +103,6 @@ export const createAdmin = async (req, res) => {
   }
 };
 
-
 // ✅ Get all admins
 export const getAllAdmins = async (req, res) => {
   try {
@@ -135,7 +134,6 @@ export const getAdminById = async (req, res) => {
   }
 };
 
-// Update admin (not updating branch references here)
 // ✅ Update admin
 export const updateAdmin = async (req, res) => {
   const session = await mongoose.startSession();
@@ -213,24 +211,45 @@ export const updateAdmin = async (req, res) => {
 };
 
 
-// Delete admin + user
+// ✅ Delete admin
 export const deleteAdmin = async (req, res) => {
   const session = await mongoose.startSession();
+  session.startTransaction();
   try {
-    session.startTransaction();
+    const id  = req.params.adminId;
+    if (!isValidObjectId(id)) throw new Error('Invalid Admin ID format');
 
-    const admin = await Admin.findById(req.params.id).session(session);
-    if (!admin) return res.status(404).json({ message: 'Admin not found' });
+    const admin = await Admin.findById(id).session(session);
+    if (!admin) throw new Error('Admin not found');
 
-    await User.findByIdAndDelete(admin.userId).session(session);
-    await Admin.findByIdAndDelete(req.params.id).session(session);
+    // Delete photo from Drive
+    if (admin.photoId) {
+      await deleteAdminFileFromDrive(admin.photoId);
+    }
+
+    // Remove from branch
+    if (admin.branchId) {
+      await Branch.findByIdAndUpdate(admin.branchId, {
+        $pull: { branchAdmins: admin._id }
+      }, { session });
+    }
+
+    // Delete linked user
+    if (admin.userId) {
+      await User.findByIdAndDelete(admin.userId, { session });
+    }
+
+    // Delete admin
+    await Admin.findByIdAndDelete(id, { session });
 
     await session.commitTransaction();
-    res.status(200).json({ message: 'Admin and user deleted successfully' });
+    session.endSession();
+
+    res.json({ message: 'Admin deleted successfully' });
   } catch (error) {
     await session.abortTransaction();
-    res.status(500).json({ message: error.message });
-  } finally {
     session.endSession();
+    handleErrorResponse(res, error, 'Admin deletion failed');
+    
   }
 };
