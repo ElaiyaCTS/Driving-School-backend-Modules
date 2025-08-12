@@ -295,3 +295,65 @@ export const deleteInstructorFileFromDrive = async (fileId) => {
                           console.error(`❌ Error deleting file: ${fileId}`, error);
                         }
                       }; 
+//<<<<<<<<<<<<<<<<<<<<<<<AdminFile>>>>>>>>>>>>>>>>>
+
+                      //uploadAdminFile
+
+                      export const uploadAdminFile = async (file) => {
+                        try {
+                          const parentFolderId = process.env.GOOGLE_DRIVE_Admin_ID; // Main Parent Folder
+                          const fileName = file.originalname; // Keep the same file name
+                      
+                          console.log("upload-fileName", fileName);
+                      
+                          // 🔍 Step 1: Check if the file already exists
+                          const query = `'${parentFolderId}' in parents and name='${fileName}' and trashed=false`;
+                          const existingFiles = await drive.files.list({
+                            q: query,
+                            fields: "files(id, name)",
+                          });
+                      
+                          let uploadedFile;
+                          const bufferStream = new stream.PassThrough();
+                          bufferStream.end(file.buffer);
+                      
+                          if (existingFiles.data.files.length > 0) {
+                            // ✅ Overwrite the existing file (Google Drive keeps older versions)
+                            const existingFileId = existingFiles.data.files[0].id;
+                      
+                            uploadedFile = await drive.files.update({
+                              fileId: existingFileId,
+                              media: { mimeType: file.mimetype, body: bufferStream },
+                              fields: "id, webViewLink",
+                            });
+                      
+                            console.log(`✅ File updated: ${fileName} (${uploadedFile.data.webViewLink})`);
+                          } else {
+                            // ✅ Upload new file if no existing file is found
+                            uploadedFile = await drive.files.create({
+                              requestBody: {
+                                name: fileName,
+                                parents: [parentFolderId],
+                              },
+                              media: { mimeType: file.mimetype, body: bufferStream },
+                              fields: "id, webViewLink",
+                            });
+                      
+                            console.log(`✅ File uploaded: ${fileName} (${uploadedFile.data.webViewLink})`);
+                          }
+                      
+                          return uploadedFile.data; // Return file details (Google Drive URL)
+                        } catch (error) {
+                          console.error("❌ Error uploading instructor file:", error);
+                          throw new Error("Instructor file upload failed");
+                        }
+                      };
+                      
+                      export const deleteAdminFileFromDrive = async (fileId) => {
+                        try {
+                          await drive.files.delete({ fileId });
+                          console.log(`✅ File deleted: ${fileId}`);
+                        } catch (error) {
+                          console.error(`❌ Error deleting file: ${fileId}` , error);
+                        }
+                      }; 

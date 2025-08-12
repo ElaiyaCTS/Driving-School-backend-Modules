@@ -1,3 +1,4 @@
+//userModel.js
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import { encryptPassword, decryptPassword } from '../util/encrypt.js';
@@ -8,21 +9,34 @@ dotenv.config();
 const userSchema = new mongoose.Schema(
   {
     username: { type: String, unique: true, sparse: true },
-    mobileNumber: { type: String, unique: true, sparse: true },
+    // mobileNumber: { type: String, unique: true, sparse: true },
     password: { type: String, required: true },
-
+    // Role can be one of the following: IT-Admin, Owner, Admin, Instructor, Learner
+    // This allows for more flexible role management
     role: {
       type: String,
       required: true,
-      enum: ['IT-Admin', 'Owner', 'Branch-Admin', 'Instructor', 'Learner'],
+      enum: ['IT-Admin', 'Owner', 'Admin', 'Instructor', 'Learner'],
     },
-
-    refId: {
+    // Reference to the user model
+    // This will be used to link the user to different roles
+      refId: {
       type: mongoose.Schema.Types.ObjectId,
-      required: true,
-      // Use manual population for now (no `ref` or `refPath`)
+      refPath: 'refModel',
+      required: function () {
+        return this.refModel != null; // required only if refModel is provided
+      },
+      default: null
     },
-
+    refModel: {
+      type: String,
+      enum: ['Owner', 'Instructor', 'Learner', 'Admin'],
+      required: function () {
+        return this.refId != null; // required only if refId is provided
+      },
+      default: null
+    },
+    // OTP and expiry fields
     otp: { type: Number, default: null },
     expiresAt: { type: Date, default: null },
   },

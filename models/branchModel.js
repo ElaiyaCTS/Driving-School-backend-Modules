@@ -16,11 +16,11 @@ const branchSchema = new mongoose.Schema({
     state: { type: String, required: true, trim: true },
     city: { type: String, required: true, trim: true },
     pincode: { type: String, required: true, trim: true },
-    street: { type: String, required: true, trim: true },
+    address: { type: String, required: true, trim: true },
   },
-  ownerId: {
+  organizationId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Owner',
+    ref: 'organization',
     required: true,
   },
   branchAdmins: [

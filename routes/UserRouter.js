@@ -1,6 +1,6 @@
 
 import express from "express";
-import adminController from "../controllers/adminController.js";
+import exadminController from "../controllers/exadminController.js";
 import userController from "../controllers/userController.js";
 import jwtAuth from "../middlewares/jwtMiddleware.js";
 import multer from "multer";

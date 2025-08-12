@@ -1,170 +1,236 @@
-import mongoose from "mongoose";
-import User from "../models/userModel.js";
-import Instructor from "../models/InstructorSchema.models.js";
-import Learner from "../models/LearnerSchema.models.js";
-import jwt from "jsonwebtoken";
-import bcrypt from "bcryptjs";
-// import fast2sms from "fast-two-sms"; // Install using `npm install fast-two-sms`
-import fs from "fs";
-import dotenv from "dotenv";
-dotenv.config();
-import {comparePasswords } from '../util/encrypt.js'
-import { getUserInfoByRole } from "../util/getUserInfoByRole.js";
-import cookie from "cookie";
-const isProd = process.env.NODE_ENV === "production";
 
- const login = async (req, res) => {
-  const { username, mobileNumber, password, role } = req.body;
+import Admin from '../models/adminModel.js';
+import User from '../models/userModel.js';
+import Branch from '../models/branchModel.js';
+import mongoose from 'mongoose';
+import { uploadAdminFile, deleteAdminFileFromDrive } from '../util/googleDriveUpload.js';
+import {handleErrorResponse} from '../util/errorHandler.js';
+
+// Helper to check valid ObjectId
+const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
+
+export const createAdmin = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  let uploadedFiles = [];
 
   try {
-    const user = await User.findOne({ $or: [{ username }, { mobileNumber }] });
-    if (!user) return res.status(400).json({ message: "User not found" });
+    const {
+      fullName, fathersName, mobileNumber, dateOfBirth,
+      gender, bloodGroup, address, joinDate, email,
+      username, password, branchId
+    } = req.body;
+           
+    // ✅ Validate branchId early if provided
+    let branchExists = null;
+    if (branchId) {
+      if (!isValidObjectId(branchId)) {
+        throw new Error('Invalid Branch ID format');
+      }
+      branchExists = await Branch.findById(branchId).session(session);
+      if (!branchExists) {
+        throw new Error('Branch not found');
+      }
+    }
 
-    const isMatch = await comparePasswords(password, user.password, process.env.JWT_SECRET);
-    if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
+    // ✅ Prepare new Admin instance
+    const newAdmin = new Admin({
+      fullName, fathersName, mobileNumber, dateOfBirth,
+      gender, bloodGroup, address, joinDate, email,
+      branchId: branchId || null
+    });
 
-    if (user.role !== role)
-      return res.status(400).json({ message: "Invalid credentials"  });
-      // return res.status(400).json({ message: "Role mismatch" });
+    // ✅ Handle photo upload if provided
+    if (req.files?.photo?.[0]) {
+      const file = req.files.photo[0];
 
-    const userinfo = await getUserInfoByRole(role, user.refId);
-    if (!userinfo) return res.status(400).json({ message: "Role based User not found" });
+      // Check file size (5 MB max)
+      if (file.size > 5 * 1024 * 1024) {
+        throw new Error('Photo must be less than 5 MB');
+      }
 
-    const token = jwt.sign(
-      { id: user._id, role: user.role, user_id: user.refId,photo:userinfo.photo, Name:userinfo.fullName},
-      process.env.JWT_SECRET,
-      { expiresIn: "1d" }
-    );
-   // Set the JWT in a cookie
-    res.setHeader("Set-Cookie", cookie.serialize("GDS_Token", token, {
-      httpOnly: true,
-      secure: isProd,                         // true in production (required if SameSite: 'None')
-      sameSite: isProd ? "None" : "Lax",      // None for cross-site, Lax for local dev
-      path: "/",
-      maxAge: 60 * 60 * 24, // 1 day
-    }));
+      const newFileName = `photo_${newAdmin._id || Date.now()}`;
+      file.originalname = newFileName;
 
-    
-    return res.status(200).json({message: "Login successful" ,"user":  {  role: user.role, user_id: user.refId,photo:userinfo.photo, Name:userinfo.fullName } });
-    // return res.status(200).json({ token, user, userinfo });
+      const uploadedFile = await uploadAdminFile(file); // Upload to Drive or your storage
+      newAdmin.photo = uploadedFile.webViewLink; // Store public view link
+      uploadedFiles.push(uploadedFile.id); // Track for rollback if needed
+    }
 
-  } catch (err) {
-    console.error("Login error:", err.message);
-    res.status(500).json({ message: "Server unavailable. Please try again later." });
+    // ✅ Save Admin
+    await newAdmin.validate();
+    await newAdmin.save({ session });
+
+    // ✅ Create linked User
+    const user = await User.create([{
+      username,
+      password,
+      role: 'Admin',
+      refId: newAdmin._id,
+      refModel: 'Admin',
+    }], { session });
+
+    // ✅ Update admin with userId
+    await Admin.findByIdAndUpdate(newAdmin._id, {
+      userId: user[0]._id
+    }, { session });
+
+    // ✅ If branch provided, push admin into branchAdmins
+    if (branchExists) {
+      await branchExists.updateOne({
+        $push: { branchAdmins: newAdmin._id }
+      }, { session });
+    }
+
+    await session.commitTransaction();
+    session.endSession();
+
+    res.status(201).json({
+      message: 'Admin created successfully',
+      data: newAdmin
+    });
+
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+
+    // Rollback: delete uploaded files
+    for (const fileId of uploadedFiles) {
+      await deleteAdminFileFromDrive(fileId);
+    }
+    handleErrorResponse(res, error,  'Admin creation failed');
   }
- };
- 
-//   const logout = (req, res) => {
-//   res.clearCookie("GDS_Token", {
-//     httpOnly: true,
-//     secure: process.env.NODE_ENV === "production",
-//     sameSite: "Strict",
-//   });
-
-//   res.status(200).json({ message: "Logout successful" });
-//  };
+};
 
 
-  const logout = (req, res) => {
-     
-      res.setHeader("Set-Cookie", cookie.serialize("GDS_Token", "", {
-       httpOnly: true,
-       secure: isProd,
-       sameSite: isProd ? "None" : "Lax",
-       path: "/",
-       expires: new Date(0), // Expire immediately
-     }));
-     
-     
-       return res.status(200).json({ message: "Logged out successfully" });
-    };
-// // Send OTP for password reset
-// const forgotPassword = async (req, res) => {
-//   const { mobileNumber } = req.body;
-//   try {
-//     const user = await User.findOne({ mobileNumber });
-//     if (!user) return res.status(400).json({ message: "User not found" });
+// ✅ Get all admins
+export const getAllAdmins = async (req, res) => {
+  try {
+    const admins = await Admin.find()
+      .populate('branchId', 'branchName')
+      .populate('userId', 'username role');
+    res.json({ message: 'Admins fetched successfully', data: admins });
+  } catch (error) {
+    handleErrorResponse(res, error, 'Failed to fetch admins');
+  }
+};
 
-//     const otp = Math.floor(100000 + Math.random() * 900000); // Generate a 6-digit OTP
-//     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // OTP valid for 5 minutes
+// ✅ Get single admin
+export const getAdminById = async (req, res) => {
+  try {
+    const id  = req.params.adminId;
 
-//     // Update user with OTP and expiration time
-//     user.otp = otp;
-//     user.expiresAt = expiresAt;
-//     await user.save();
+    if (!isValidObjectId(id)) throw new Error('Invalid Admin ID format');
 
-//     // Use Fast2SMS to send OTP
+    const admin = await Admin.findById(id)
+      .populate('branchId', 'branchName')
+      .populate('userId', 'username role ');
+
+    if (!admin) throw new Error('Admin not found');
+
+    res.json({ message: 'Admin fetched successfully', data: admin });
+  } catch (error) {
+    handleErrorResponse(res, error, 'Failed to fetch admin');
+  }
+};
+
+// Update admin (not updating branch references here)
+// ✅ Update admin
+export const updateAdmin = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  let uploadedFiles = [];
+  try {
+    const  id  = req.params.adminId;
+    console.log(`Updating admin with ID: ${id}`);
     
-    
-//     const response = await fast2sms.sendMessage({
-//       authorization: process.env.SMS_API, // Replace with your API key
-//       message: `Your OTP for password reset is: ${otp}`,
-//       numbers: [mobileNumber],
-//     });
+    if (!isValidObjectId(id)) throw new Error('Invalid Admin ID format');
 
-// // return
-//     if (response.return) {
-//       return res.status(200).json({ message: "OTP sent successfully" });
-//     } else {
-//       throw new Error("Failed to send OTP");
-//     }
-//   } catch (err) {
-//     console.error(err);
-//     res.status(500).json({ message: "Server error", error: err.message });
-//   }
-// };
+    const {
+      fullName, fathersName, mobileNumber, dateOfBirth,
+      gender, bloodGroup, address, joinDate, email,
+      username, password,active
+    } = req.body;
 
-// // Verify OTP
-// const verifyOtp = async (req, res) => {
-//   const { mobileNumber, otp } = req.body;
-//   try {
-//     const user = await User.findOne({ mobileNumber });
-//     if (!user) return res.status(400).json({ message: "User not found" });
+    const admin = await Admin.findById(id).session(session);
+    if (!admin) throw new Error('Admin not found');
 
-//     // Check if OTP is valid
-//     if (!user.otp || user.otp !== parseInt(otp)) {
-//       return res.status(400).json({ message: "Invalid OTP" });
-//     }
+    // ✅ Handle photo replacement
+    if (req.files?.photo?.[0]) {
+      const file = req.files.photo[0];
+      if (file.size > 5 * 1024 * 1024) throw new Error('Photo must be less than 5 MB');
 
-//     // Check if OTP is expired
-//     if (user.expiresAt < Date.now()) {
-//       user.otp = null; // Clear expired OTP
-//       user.expiresAt = null;
-//       await user.save();
-//       return res.status(400).json({ message: "OTP expired" });
-//     }
+      const newFileName = `photo_${admin._id}`;
+      file.originalname = newFileName;
 
-//     // OTP is verified; clear the OTP and expiration
-//     user.otp = null;
-//     user.expiresAt = null;
-//     await user.save();
+      const uploadedFile = await uploadAdminFile(file);
+      admin.photo = uploadedFile.webViewLink;
+      admin.photoId = uploadedFile.id;
+      console.log(admin.photo );
+      console.log(admin.photoId );
+      
+      uploadedFiles.push(uploadedFile.id);
+    }
 
-//     res.status(200).json({ message: "OTP verified successfully" });
-//   } catch (err) {
-//     console.error(err);
-//     res.status(500).json({ message: "Server error", error: err.message });
-//   }
-// };
 
-// // Change Password
-// const changePassword = async (req, res) => {
-//   const { mobileNumber, newPassword } = req.body;
-//   try {
-//     const user = await User.findOne({ mobileNumber });
-//     if (!user) return res.status(400).json({ message: "User not found" });
+    // ✅ Update only allowed fields
+    admin.fullName = fullName ?? admin.fullName;
+    admin.fathersName = fathersName ?? admin.fathersName;
+    admin.mobileNumber = mobileNumber ?? admin.mobileNumber;
+    admin.dateOfBirth = dateOfBirth ?? admin.dateOfBirth;
+    admin.gender = gender ?? admin.gender;
+    admin.bloodGroup = bloodGroup ?? admin.bloodGroup;
+    admin.address = address ?? admin.address;
+    admin.joinDate = joinDate ?? admin.joinDate;
+    admin.email = email ?? admin.email;
+    admin.active = active ?? admin.active;
 
-//     // Hash the new password using bcryptjs
-//     const hashedPassword = await bcrypt.hash(newPassword, 10);
-//     user.password = hashedPassword;
-//     await user.save();
+    await admin.save({ session });
 
-//     res.status(200).json({ message: "Password updated successfully" });
-//   } catch (err) {
-//     console.error(err);
-//     res.status(500).json({ message: "Server error", error: err.message });
-//   }
-// };
+    // ✅ Update linked user (if exists)
+    if (admin.userId) {
+      const userUpdate = { username };
+      if (password) userUpdate.password = password;
+      await User.findByIdAndUpdate(admin.userId, userUpdate, { session });
+    }
 
-export default { login,logout};
-// export default { login, forgotPassword, verifyOtp, changePassword };
-// export default { createUser}
+    await session.commitTransaction();
+    session.endSession();
+
+    res.json({ message: 'Admin updated successfully', data: admin });
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+
+    // Rollback uploaded files
+    // for (const fileId of uploadedFiles) {
+    //   await deleteAdminFileFromDrive(fileId);
+    // }
+    handleErrorResponse(res, error, 'Admin update failed');
+  }
+};
+
+
+// Delete admin + user
+export const deleteAdmin = async (req, res) => {
+  const session = await mongoose.startSession();
+  try {
+    session.startTransaction();
+
+    const admin = await Admin.findById(req.params.id).session(session);
+    if (!admin) return res.status(404).json({ message: 'Admin not found' });
+
+    await User.findByIdAndDelete(admin.userId).session(session);
+    await Admin.findByIdAndDelete(req.params.id).session(session);
+
+    await session.commitTransaction();
+    res.status(200).json({ message: 'Admin and user deleted successfully' });
+  } catch (error) {
+    await session.abortTransaction();
+    res.status(500).json({ message: error.message });
+  } finally {
+    session.endSession();
+  }
+};

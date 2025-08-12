@@ -1,14 +1,13 @@
 // utils/roleGroups.js
+export const ROLE = {
+  systemAdmins: ['IT-Admin'], 
 
-export const ROLE_GROUPS = {
-    topLevel: [ 'IT-Admin'], 
+  superUsers: ['Owner', 'IT-Admin'], 
 
-    Owner: ['Owner', 'IT-Admin'], 
+  adminLevel: ['Owner', 'Admin', 'IT-Admin'], 
 
-    ownerOrAdmin: ['Owner', 'Admin', 'IT-Admin'], // ✅ Good
-    
-    branchStaff: ['Owner','Admin', 'Instructor', 'IT-Admin'],
-    
-    allUsers: ['Owner', 'Admin', 'Instructor', 'Learner', 'IT-Admin'],
+  branchTeam: ['Owner', 'Admin', 'Instructor', 'IT-Admin'], 
 
+  everyone: ['Owner', 'Admin', 'Instructor', 'Learner', 'IT-Admin'], 
 };
+export default ROLE;

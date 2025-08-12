@@ -1,6 +1,6 @@
 
 import express from "express";
-import adminController from "../controllers/adminController.js";
+import exadminController from "../controllers/exadminController.js";
 import {createStaff,getAllStaff,getStaffById,updateStaff,deleteStaff} from "../controllers/staff.js";
 import jwtAuth from "../middlewares/jwtMiddleware.js";
 import multer from "multer";
