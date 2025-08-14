@@ -1,6 +1,5 @@
 //userModel.js
 import mongoose from 'mongoose';
-import bcrypt from 'bcryptjs';
 import { encryptPassword, decryptPassword } from '../util/encrypt.js';
 import dotenv from 'dotenv';
 

@@ -7,7 +7,7 @@ import { connectToDatabase } from "./config/db.js";
 // import  "./config/db.js";
 import adminCombinedRoutes from "./routes/adminCombinedRoutes/adminCombinedRoutes.js";
 import userCombinedRoutes from "./routes/userCombinedRoutes/userCombinedRoutes.js"; 
-import exadminRoutes from "./routes/exadminRoutes.js";
+// import exadminRoutes from "./routes/exadminRoutes.js";
 import UserRouter from "./routes/UserRouter.js";
 import courseRoutes from "./routes/courseRoutes.js";
 import courseAssignedRoutes from "./routes/courseAssignedRoutes.js";
@@ -29,6 +29,8 @@ import dashboardRoutes from './routes/dashboard.js';
 // in app.js or server.js
 import branchRoutes from './routes/branchRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
+import instructorRoutes from './routes/instructorRoutes.js';
+import learnerRoutes from './routes/learnerRoutes.js';
 
 
 
@@ -74,12 +76,14 @@ app.use("/api/image-proxy", imageProxyRoutes);
 //
 // app.use("/api/upload", uploadRoutes);
 // app.use("/api/admin", exadminRoutes);
+app.use("/api/user", userCombinedRoutes);
 app.use('/api/owners', ownerRoutes);
 app.use('/api/admins', adminRoutes);// Admin routes
 app.use('/api/branches', branchRoutes);
 app.use("/api/admin", adminCombinedRoutes);
 app.use('/api/dashboard', dashboardRoutes);
-app.use("/api/user", userCombinedRoutes);
+app.use("/api/instructor", instructorRoutes);
+app.use("/api/learner", learnerRoutes);
 // app.use("/api/user", UserRouter);
 // app.use("/api/auth", exadminRoutes);
 app.use('/api/courses', courseRoutes); 

@@ -1,7 +1,7 @@
 // routes/adminCombinedRoutes.js
 
 import express from "express";
-import exadminRoutes from "../exadminRoutes.js";
+// import exadminRoutes from "../exadminRoutes.js";
 import userRoutes from "../UserRouter.js";
 import courseRoutes from "../courseRoutes.js";
 import courseAssignedRoutes from "../courseAssignedRoutes.js";
@@ -13,7 +13,7 @@ import staffAttendanceRoutes from "../staffAttendanceRoutes.js";
 import staffRouter from "../staffRouter.js";
 const router = express.Router();
 
-router.use("/", exadminRoutes);
+// router.use("/", exadminRoutes);
 // router.use("/auth", exadminRoutes);
 router.use("/", userRoutes);
 router.use('/courses', courseRoutes); 
