@@ -76,6 +76,7 @@ app.use("/api/image-proxy", imageProxyRoutes);
 //
 // app.use("/api/upload", uploadRoutes);
 // app.use("/api/admin", exadminRoutes);
+app.use("/api/admin", UserRouter);
 app.use("/api/user", userCombinedRoutes);
 app.use('/api/owners', ownerRoutes);
 app.use('/api/admins', adminRoutes);// Admin routes

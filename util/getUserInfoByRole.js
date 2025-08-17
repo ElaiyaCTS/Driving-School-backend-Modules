@@ -6,6 +6,7 @@ import Owner  from "../models/ownerModel.js";
 export const getUserInfoByRole = async (role, refId) => {
     if (!role || !refId) return null;
   
+
     switch (role) {
       case 'Owner':
         return await Owner.findById(refId);

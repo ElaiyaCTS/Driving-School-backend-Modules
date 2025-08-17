@@ -3,7 +3,7 @@ import User from "../models/userModel.js";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 dotenv.config();
-import {comparePasswords } from '../util/encrypt.js'
+import { comparePasswords } from "../util/encrypt.js";
 import { getUserInfoByRole } from "../util/getUserInfoByRole.js";
 import cookie from "cookie";
 const isProd = process.env.NODE_ENV === "production";
@@ -14,37 +14,42 @@ const login = async (req, res) => {
 
   try {
     // 🔹 Find user by username or mobileNumber AND ensure active: true
-    const user = await User.findOne({
-      $and: [
-        { $or: [{ username }, { mobileNumber }] },
-        { active: true }
-      ]
-    });
+    const user = await User.findOne({ $or: [{ username }, { mobileNumber }] });
 
-    if (!user) return res.status(400).json({ message: "User not found or inactive" });
+    if (!user)
+      return res.status(400).json({ message: "User not found or inactive" });
 
     // 🔹 Verify password
-    const isMatch = await comparePasswords(password, user.password, process.env.JWT_SECRET);
-    if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
+    const isMatch = await comparePasswords(
+      password,
+      user.password,
+      process.env.JWT_SECRET
+    );
+    if (!isMatch)
+      return res.status(400).json({ message: "Invalid credentials" });
+console.log('user:', user);
+// return
 
     // 🔹 Fetch additional user info (role now comes from DB, not request body)
     const userinfo = await getUserInfoByRole(user.role, user.refId);
-    if (!userinfo) return res.status(400).json({ message: "User info not found" });
+    if (!userinfo)
+      return res.status(400).json({ message: "User info not found" });
 
-    
     // 4️⃣ Prepare JWT payload (exclude photo for Owner)
     const payload = {
       id: user._id,
       role: user.role,
       user_id: user.refId,
-      Name: userinfo.fullName
+      Name: userinfo.fullName,
     };
 
     if (user.role !== "Owner") {
       payload.photo = userinfo.photo;
     }
-  // 🔹 Create JWT token
-    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "1d" });
+    // 🔹 Create JWT token
+    const token = jwt.sign(payload, process.env.JWT_SECRET, {
+      expiresIn: "1d",
+    });
 
     // 🔹 Set cookie
     res.setHeader(
@@ -54,14 +59,14 @@ const login = async (req, res) => {
         secure: isProd,
         sameSite: isProd ? "None" : "Lax",
         path: "/",
-        maxAge: 60 * 60 * 24 // 1 day
+        maxAge: 60 * 60 * 24, // 1 day
       })
     );
-     // Prepare response (exclude photo for Owner)
+    // Prepare response (exclude photo for Owner)
     const responseUser = {
       role: user.role,
       user_id: user.refId,
-      Name: userinfo.fullName
+      Name: userinfo.fullName,
     };
 
     if (user.role !== "Owner") {
@@ -70,29 +75,30 @@ const login = async (req, res) => {
 
     return res.status(200).json({
       message: "Login successful",
-      user: responseUser
+      user: responseUser,
     });
-
   } catch (err) {
     console.error("Login error:", err.message);
-    res.status(500).json({ message: "Server unavailable. Please try again later." });
+    res
+      .status(500)
+      .json({ message: "Server unavailable. Please try again later." });
   }
 };
 
+const logout = (req, res) => {
+  res.setHeader(
+    "Set-Cookie",
+    cookie.serialize("GDS_Token", "", {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: isProd ? "None" : "Lax",
+      path: "/",
+      expires: new Date(0), // Expire immediately
+    })
+  );
 
-  const logout = (req, res) => {
-     
-      res.setHeader("Set-Cookie", cookie.serialize("GDS_Token", "", {
-       httpOnly: true,
-       secure: isProd,
-       sameSite: isProd ? "None" : "Lax",
-       path: "/",
-       expires: new Date(0), // Expire immediately
-     }));
-     
-     
-       return res.status(200).json({ message: "Logged out successfully" });
-    };
+  return res.status(200).json({ message: "Logged out successfully" });
+};
 // // Send OTP for password reset
 // const forgotPassword = async (req, res) => {
 //   const { mobileNumber } = req.body;
@@ -109,8 +115,7 @@ const login = async (req, res) => {
 //     await user.save();
 
 //     // Use Fast2SMS to send OTP
-    
-    
+
 //     const response = await fast2sms.sendMessage({
 //       authorization: process.env.SMS_API, // Replace with your API key
 //       message: `Your OTP for password reset is: ${otp}`,
@@ -180,6 +185,6 @@ const login = async (req, res) => {
 //   }
 // };
 
-export default { login,logout};
+export default { login, logout };
 // export default { login, forgotPassword, verifyOtp, changePassword };
 // export default { createUser}
