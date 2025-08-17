@@ -40,11 +40,7 @@ function decryptPassword(encryptedPassword, secretKey) {
 
 // Compare original password with decrypted password
 function comparePasswords(originalPassword, encryptedPassword, secretKey) {
-
   const decryptedPassword = decryptPassword(encryptedPassword, secretKey);
-  console.log('decryptedPassword:', decryptedPassword)
-  console.log('originalPassword,encryptedPassword,secretKey:', originalPassword,encryptedPassword,secretKey)
-  
   return originalPassword === decryptedPassword;
 }
 // Compare original password with decrypted password
@@ -57,5 +53,5 @@ function Passwords(originalPassword, encryptedPassword, secretKey) {
   return originalPassword === decryptedPassword;
 }
 
-Passwords("ok","45ca1abacb07669959b4217ff7f39a38","elaiya")
+// Passwords("ok","45ca1abacb07669959b4217ff7f39a38","elaiya")
 export { encryptPassword, decryptPassword, comparePasswords };
