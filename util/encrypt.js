@@ -41,6 +41,8 @@ function decryptPassword(encryptedPassword, secretKey) {
 // Compare original password with decrypted password
 function comparePasswords(originalPassword, encryptedPassword, secretKey) {
   const decryptedPassword = decryptPassword(encryptedPassword, secretKey);
+//   console.log('decryptedPassword:', decryptedPassword)
+  
   return originalPassword === decryptedPassword;
 }
 // Compare original password with decrypted password

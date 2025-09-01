@@ -10,6 +10,8 @@ import {findLearnerFolderInDrive, uploadAndOverwriteFile, createDriveFolder,uplo
 import mongoose from 'mongoose';
 // import DbConnection from "../config/db.js"; // your existing file
 import { connectToDatabase } from "../config/db.js"; 
+import { handleErrorResponse } from "../util/errorHandler.js";
+
 
    //createLearner
    
@@ -26,7 +28,16 @@ import { connectToDatabase } from "../config/db.js";
     session = await mongoose.startSession();
     session.startTransaction();
 
-    const { username, mobileNumber, password, role } = req.body;
+
+    const { username, mobileNumber, password } = req.body;
+    const role= "Learner"; // Ensure role is always "Learner"
+    //  console.log(req.branchId);
+     
+     if (!req.branchId) {
+        const err = new Error("Branch ID is not supported in this endpoint");
+        err.status = 401;   // set custom status
+        throw err;
+      }
 
     if (!username || !mobileNumber || !password) {
       return res.status(400).json({ message: "Username, Mobile Number, and Password are required" });
@@ -69,14 +80,17 @@ import { connectToDatabase } from "../config/db.js";
 
     const newLearner = new Learner({
       ...req.body,
+      organizationId: req.user.organizationId, // Ensure organizationId is set
       admissionNumber,
       folderId: learnerFolderId,
       userId: null,
+      branchId: req.branchId, // ✅ Use branchId from JWT
       ...fileUrls,
     });
 
     const newUser = new User({ username, mobileNumber, password, role });
     newUser.refId = newLearner._id;
+    newUser.refModel = role; // "Learner"
     newLearner.userId = newUser._id;
 
     await newLearner.save({ session });
@@ -100,24 +114,8 @@ import { connectToDatabase } from "../config/db.js";
    if (learnerFolderId) {
      await deleteFolderFromDrive(learnerFolderId).catch(() => {});
    }
- 
-   // ✅ Handle Mongoose validation errors
-   if (error.name === 'ValidationError') {
-     const firstErrorKey = Object.keys(error.errors)[0];
-     const errorMessage = error.errors[firstErrorKey].message;
-     return res.status(400).json({ message: errorMessage });
-   }
- 
-   // ✅ Handle Duplicate Key Error (E11000)
-   if (error.code === 11000) {
-     const field = Object.keys(error.keyPattern || {})[0]; // username or mobileNumber
-     const value = error.keyValue ? error.keyValue[field] : '';
-     return res.status(409).json({
-       message: `Duplicate ${field}`,
-       error: `The ${field} '${value}' is already in use.`,
-     });
-   }
-    handleValidationError(error, res);
+    handleErrorResponse(res,error, "Error creating learner");
+    console.error("Error in createLearner:", error);
    }
 
   };
@@ -126,13 +124,24 @@ import { connectToDatabase } from "../config/db.js";
  // 📌 READ ALL Learners
     const getAllLearners = async (req, res) => {
     try {
+
+   if (!req.branchId) {
+  return res.status(401).json({ message: "Branch ID is required for this endpoint" });
+}
+
+if (!req.user?.organizationId) {
+  return res.status(401).json({ message: "Organization ID is required for this endpoint" });
+}
+const branchId = req.branchId || req.query.branchId;
+const organizationId = req.user.organizationId || req.query.organizationId;
+
     const { fromdate, todate, search, gender } = req.query;
 
     let page = parseInt(req.query.page, 10);
     let limit = parseInt(req.query.limit, 10);
     const paginate = !isNaN(page) && !isNaN(limit) && page > 0 && limit > 0;
 
-    const searchFilter = {};
+    const searchFilter = {branchId,organizationId};
 
     // Parse ISO dates like 2025-05-18
     const parseISODate = (str) => {
@@ -229,10 +238,25 @@ import { connectToDatabase } from "../config/db.js";
   // 📌 GET Single Learners by _id
 const getLearnersById = async (req, res) => {
   try {
-    const { _id } = req.params; // Get _id from request params
+console.log("getLearnersById");
 
+     const { _id } = req.params;
+    // const branchId = req.branchId || req.query.branchId;
+     console.log('req.branchId:', req.branchId);
+     console.log('req.query.branchId:', req.query.branchId);
+
+    const organizationId = req.user?.organizationId || req.query.organizationId;
+    console.log('user:', req.user)
+    // console.log({_id,branchId,organizationId});
+    
+    // ✅ Require all three values
+    if (!_id || !branchId || !organizationId) {
+      return res.status(400).json({
+        message: "Learner ID, Branch ID, and Organization ID are all required",
+      });
+    }
     // Find instructor by _id and populate user details
-    const learners = await Learner.findById(_id).populate("userId", "username mobileNumber role password");
+    const learners = await Learner.findOne({_id,branchId,organizationId}).populate("userId", "username mobileNumber role password");
 
     // If no learners found, return 404
     if (!learners) {

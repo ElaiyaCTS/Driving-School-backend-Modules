@@ -7,6 +7,8 @@ import {
   deleteAdmin,
 } from '../controllers/adminController.js';
 import multer from "multer";
+import ROLE from '../util/roleGroups.js';
+import jwtAuth from '../middlewares/jwtMiddleware.js';
 
 const router = express.Router();
 // Set up multer for file uploads
@@ -22,13 +24,18 @@ const fileFieldsInstead = [
 ];
 
 // Create a new admin
-router.post('/create', upload.fields(fileFieldsInstead), createAdmin);
+router.post('/create', jwtAuth(ROLE.superUsers), upload.fields(fileFieldsInstead), createAdmin);
+
+
+// Get un-assinged admins
+router.get('/un-assigned-admin', jwtAuth(ROLE.superUsers),getAllAdmins);
+router.get('/get-assigned-admin/:branchId', jwtAuth(ROLE.superUsers),getAllAdmins);
 
 // Get all admins
-router.get('/', getAllAdmins);
+router.get('/', jwtAuth(ROLE.superUsers), getAllAdmins);
 
 // Get a single admin by ID
-router.get('/:adminId', getAdminById);
+router.get('/:adminId', jwtAuth(ROLE.adminLevel), getAdminById);
 
 // Update admin by ID
 router.put('/:adminId',  upload.fields(fileFieldsInstead),updateAdmin);

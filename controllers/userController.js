@@ -10,15 +10,18 @@ const isProd = process.env.NODE_ENV === "production";
 
 // login user
 const login = async (req, res) => {
-  const { username, mobileNumber, password } = req.body; // removed role
+  const { username, password } = req.body; // removed role
+  console.log('username, password:', username,  password)
 
   try {
     // 🔹 Find user by username or mobileNumber AND ensure active: true
-    const user = await User.findOne({ $or: [{ username }, { mobileNumber }] });
+    const user = await User.findOne({  username });
 
     if (!user)
       return res.status(400).json({ message: "User not found or inactive" });
 
+    // console.log(user);
+    
     // 🔹 Verify password
     const isMatch = await comparePasswords(
       password,
@@ -27,24 +30,28 @@ const login = async (req, res) => {
     );
     if (!isMatch)
       return res.status(400).json({ message: "Invalid credentials" });
-console.log('user:', user);
+// console.log('user:', user);
 // return
 
     // 🔹 Fetch additional user info (role now comes from DB, not request body)
     const userinfo = await getUserInfoByRole(user.role, user.refId);
     if (!userinfo)
       return res.status(400).json({ message: "User info not found" });
-
+    // console.log('====================================');
+    // console.log(userinfo);
+    // console.log('====================================');
     // 4️⃣ Prepare JWT payload (exclude photo for Owner)
     const payload = {
       id: user._id,
       role: user.role,
       user_id: user.refId,
       Name: userinfo.fullName,
+      organizationId: userinfo.organizationId,
     };
 
     if (user.role !== "Owner") {
       payload.photo = userinfo.photo;
+      payload.branchId = userinfo.branchId;
     }
     // 🔹 Create JWT token
     const token = jwt.sign(payload, process.env.JWT_SECRET, {
@@ -64,13 +71,17 @@ console.log('user:', user);
     );
     // Prepare response (exclude photo for Owner)
     const responseUser = {
+       id: user._id,
       role: user.role,
       user_id: user.refId,
       Name: userinfo.fullName,
+      organizationId: userinfo.organizationId,
     };
 
     if (user.role !== "Owner") {
       responseUser.photo = userinfo.photo;
+      responseUser.branchId = userinfo.branchId;
+      
     }
 
     return res.status(200).json({

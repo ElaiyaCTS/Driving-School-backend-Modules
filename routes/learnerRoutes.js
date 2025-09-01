@@ -24,19 +24,19 @@ const fileFields = [
 router.post(
   "/create-Learner",
   upload.fields(fileFields), // Add this middleware
- jwtAuth(ROLE.superUsers),
+ jwtAuth(ROLE.adminLevel),
   userController.createLearner
 );
 // get all data
-router.get("/learners", jwtAuth(ROLE.branchTeam), userController.getAllLearners);
+router.get("/", jwtAuth(ROLE.branchTeam), userController.getAllLearners);
 
 // get single data
-router.get("/learner/:_id", jwtAuth(ROLE.everyone), userController.getLearnersById);
+router.get("/:_id", jwtAuth(ROLE.everyone), userController.getLearnersById);
 
 // UPDATE
-router.put("/learner/:admissionNumber",jwtAuth(ROLE.everyone),upload.fields(fileFields), userController.updateLearner);
+router.put("/:admissionNumber",jwtAuth(ROLE.everyone),upload.fields(fileFields), userController.updateLearner);
 
 // DELETE
-router.delete("/learner/:_id",jwtAuth(ROLE.systemAdmins), userController.deleteLearner);
+router.delete("/:_id",jwtAuth(ROLE.systemAdmins), userController.deleteLearner);
 
 export default router;

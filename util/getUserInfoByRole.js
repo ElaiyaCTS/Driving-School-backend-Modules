@@ -9,13 +9,20 @@ export const getUserInfoByRole = async (role, refId) => {
 
     switch (role) {
       case 'Owner':
-        return await Owner.findById(refId);
+     const owner = await Owner.findById(refId);
+         return owner
       case 'Admin':
-        return await Admin.findById(refId);
+      const admins =await Admin.findById(refId);
+    //   console.log("Admin",admin);
+      
+        return admins
       case 'Instructor':
-        return await Instructor.findById(refId);
+        const Instructors= await Instructor.findById(refId);
+        console.log('Instructor:', Instructors)
+        return Instructors
       case 'Learner':
-        return await Learner.findById(refId);
+        const Learners= await Learner.findById(refId);
+        return Learners
       default:
         return null;
     }

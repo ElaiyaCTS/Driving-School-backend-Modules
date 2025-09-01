@@ -50,6 +50,12 @@ export const handleErrorResponse = (res, error, defaultMessage = "Internal Serve
     return res.status(409).json({ message: `Duplicate value for ${field}` });
   }
 
+   // 🔹 Handle custom status (e.g., from middleware)
+  if (error.status) {
+    return res
+      .status(error.status)
+      .json({ message: error.message || defaultMessage });
+  }
   // General fallback
   return res.status(500).json({ message: defaultMessage });
 };

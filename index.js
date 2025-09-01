@@ -4,33 +4,36 @@ import cors from "cors";
 import bodyParser from "body-parser";
 // import DbConnection from "./config/db.js";
 import { connectToDatabase } from "./config/db.js"; 
-// import  "./config/db.js";
-import adminCombinedRoutes from "./routes/adminCombinedRoutes/adminCombinedRoutes.js";
-import userCombinedRoutes from "./routes/userCombinedRoutes/userCombinedRoutes.js"; 
-// import exadminRoutes from "./routes/exadminRoutes.js";
-import UserRouter from "./routes/UserRouter.js";
-import courseRoutes from "./routes/courseRoutes.js";
-import courseAssignedRoutes from "./routes/courseAssignedRoutes.js";
-import learnerAttendanceRoutes from './routes/learnerAttendanceRoutes.js';
-import instructorAttendanceRoutes from './routes/instructorAttendanceRoutes.js';
-import paymentRoutes from "./routes/paymentRoutes.js";
-import testRoutes from "./routes/testRoutes.js";
-import {sendSMS} from "./util/otp-service.js";
-import staffAttendanceRoutes from './routes/staffAttendanceRoutes.js';
-import staffRouter from './routes/staffRouter.js';
-import ownerRoutes from './routes/ownerRoutes.js';
-// import uploadRoutes from "./routes/uploadRoutes.js";
-import axios from "axios";
-// import exadminRoutes from "./routes/"; 
-import helmet from "helmet";
-import imageProxyRoutes from './routes/imageProxyRoutes.js';
+import roleBasedRoutes from "./routes/index.js";
 import cookieParser from "cookie-parser";
-import dashboardRoutes from './routes/dashboard.js';
-// in app.js or server.js
-import branchRoutes from './routes/branchRoutes.js';
-import adminRoutes from './routes/adminRoutes.js';
-import instructorRoutes from './routes/instructorRoutes.js';
-import learnerRoutes from './routes/learnerRoutes.js';
+import imageProxyRoutes from './routes/imageProxyRoutes.js';
+import UserRouter from "./routes/UserRouter.js";
+
+// ...
+// // import  "./config/db.js";
+// import adminCombinedRoutes from "./routes/adminCombinedRoutes/index.js";
+// import userCombinedRoutes from "./routes/userCombinedRoutes/userCombinedRoutes.js"; 
+// // import exadminRoutes from "./routes/exadminRoutes.js";
+// import courseRoutes from "./routes/courseRoutes.js";
+// import courseAssignedRoutes from "./routes/courseAssignedRoutes.js";
+// import learnerAttendanceRoutes from './routes/learnerAttendanceRoutes.js';
+// import instructorAttendanceRoutes from './routes/instructorAttendanceRoutes.js';
+// import paymentRoutes from "./routes/paymentRoutes.js";
+// import testRoutes from "./routes/testRoutes.js";
+// import {sendSMS} from "./util/otp-service.js";
+// import staffAttendanceRoutes from './routes/staffAttendanceRoutes.js';
+// import staffRouter from './routes/staffRouter.js';
+// import ownerRoutes from './routes/ownerRoutes.js';
+// // import uploadRoutes from "./routes/uploadRoutes.js";
+// import axios from "axios";
+// // import exadminRoutes from "./routes/"; 
+// import helmet from "helmet";
+// import dashboardRoutes from './routes/dashboard.js';
+// // in app.js or server.js
+// import branchRoutes from './routes/branchRoutes.js';
+// import adminRoutes from './routes/adminRoutes.js';
+// import instructorRoutes from './routes/instructorRoutes.js';
+// import learnerRoutes from './routes/learnerRoutes.js';
 
 
 
@@ -71,30 +74,42 @@ app.use(cookieParser());
 // Routes
 app.get("/", (req, res) => res.send("Server running"));
 
+
+// Role-based APIs
+app.use("/api", roleBasedRoutes);
+
+app.use("/api/user", UserRouter);  
+
 app.use("/api/image-proxy", imageProxyRoutes);
+
+
+
+
+
+
 
 //
 // app.use("/api/upload", uploadRoutes);
 // app.use("/api/admin", exadminRoutes);
-app.use("/api/admin", UserRouter);
-app.use("/api/user", userCombinedRoutes);
-app.use('/api/owners', ownerRoutes);
-app.use('/api/admins', adminRoutes);// Admin routes
-app.use('/api/branches', branchRoutes);
-app.use("/api/admin", adminCombinedRoutes);
-app.use('/api/dashboard', dashboardRoutes);
-app.use("/api/instructor", instructorRoutes);
-app.use("/api/learner", learnerRoutes);
-// app.use("/api/user", UserRouter);
+// app.use("/api/admin", UserRouter);  
+// app.use("/api/user", userCombinedRoutes);
+// app.use('/api/owners', ownerRoutes);
+// app.use('/api/admins', adminRoutes);// Admin routes
+// app.use('/api/branches', branchRoutes);
+// app.use("/api/admin", adminCombinedRoutes);
+// app.use('/api/dashboard', dashboardRoutes);
+// app.use("/api/instructor", instructorRoutes);
+// app.use("/api/learner", learnerRoutes);
+// // app.use("/api/user", UserRouter);
 // app.use("/api/auth", exadminRoutes);
-app.use('/api/courses', courseRoutes); 
-app.use('/api/course-assigned', courseAssignedRoutes);
-app.use('/api/learner-attendance', learnerAttendanceRoutes);
-app.use('/api/instructor-attendance', instructorAttendanceRoutes);
-app.use("/api/payments", paymentRoutes);
-app.use("/api/tests", testRoutes);
-app.use('/api/staff', staffRouter);
-app.use('/api/staff-attendance', staffAttendanceRoutes);
+// app.use('/api/courses', courseRoutes); 
+// app.use('/api/course-assigned', courseAssignedRoutes);
+// app.use('/api/learner-attendance', learnerAttendanceRoutes);
+// app.use('/api/instructor-attendance', instructorAttendanceRoutes);
+// app.use("/api/payments", paymentRoutes);
+// app.use("/api/tests", testRoutes);
+// app.use('/api/staff', staffRouter);
+// app.use('/api/staff-attendance', staffAttendanceRoutes);
 
 // Connect to Database
 

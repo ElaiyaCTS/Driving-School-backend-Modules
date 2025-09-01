@@ -16,7 +16,7 @@ const fileFieldsInstead = [
   { name: "photo", maxCount: 1 }, // 🚨 "photo" instead of "profile"
 ];
 
-router.post("/create",jwtAuth(["Admin"]),upload.fields(fileFieldsInstead),createStaff);
+router.post("/create",upload.fields(fileFieldsInstead),createStaff);
 
 // get all data
 router.get("/", jwtAuth(["Admin"]), getAllStaff);

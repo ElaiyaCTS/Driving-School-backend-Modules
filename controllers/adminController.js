@@ -38,7 +38,8 @@ export const createAdmin = async (req, res) => {
     // ✅ Prepare new Admin instance
     const newAdmin = new Admin({
       fullName, fathersName, mobileNumber, dateOfBirth,
-      gender, bloodGroup, address, joinDate, email,
+      gender, bloodGroup, address, joinDate, email, 
+     organizationId: req.user.organizationId,
       branchId: branchId || null
     });
 
@@ -106,15 +107,66 @@ export const createAdmin = async (req, res) => {
 
 // ✅ Get all admins
 export const getAllAdmins = async (req, res) => {
-  try {
-    const admins = await Admin.find()
-      .populate('branchId', 'branchName')
-      .populate('userId', 'username role');
-    res.json({ message: 'Admins fetched successfully', data: admins });
-  } catch (error) {
-    handleErrorResponse(res, error, 'Failed to fetch admins');
+//   const { organizationId } = req.params;    
+// if (!req.branchId) {
+//   return res.status(401).json({ message: "Branch ID is required for this endpoint" });
+// }
+
+if (!req.user?.organizationId) {
+  return res.status(401).json({ message: "Organization ID is required for this endpoint" });
+}
+// const branchId = req.branchId || req.query.branchId;
+const organizationId = req.user.organizationId || req.query.organizationId;
+const branchId = req.params||null; 
+
+console.log("Matched path:", req.route.path); 
+  // will log either '/:organizationId' or '/un-assigned-admin/:organizationId'
+
+  if (req.route.path === '/un-assigned-admin') {
+    // Unassigned admins
+    try {
+      const un_assigned_admins = await Admin.find({
+        organizationId,
+        $or: [
+          { branchId: null },              
+          { branchId: { $exists: false } } 
+        ]
+      }).populate('userId', 'username role');
+
+      res.json({ message: 'Unassigned admins fetched successfully', data: un_assigned_admins });
+    } catch (error) {
+      handleErrorResponse(res, error);
+    }
+  } 
+  else if (req.route.path === '/') {
+    // Normal admins (assigned or all, depending on your need)
+    try {
+      const admins = await Admin.find({ organizationId })
+        .populate('branchId', 'branchName')
+        .populate('userId', 'username role');
+
+      res.json({ message: 'Admins fetched successfully', data: admins });
+    } catch (error) {
+      handleErrorResponse(res, error);
+    }
+  }
+  else if (req.route.path === '/get-assigned-admin/:branchId') {
+    
+    try {
+        if (!branchId) {
+            return res.status(409).json({ message: "Branch ID is required for this endpoint"})
+        }
+      const admins = await Admin.find({ organizationId,branchId })
+        .populate('branchId', 'branchName')
+        .populate('userId', 'username role');
+
+      res.json({ message: 'Admins fetched successfully', data: admins });
+    } catch (error) {
+      handleErrorResponse(res, error);
+    }
   }
 };
+
 
 // ✅ Get single admin
 export const getAdminById = async (req, res) => {

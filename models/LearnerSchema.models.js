@@ -29,6 +29,19 @@ const learnerSchema = new mongoose.Schema(
       required: true},
 
     userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+     branchId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Branch',
+    default: null, // Optional, can be null if admin is not assigned to a branch
+  },
+    organizationId: {
+      type: mongoose.Schema.Types.ObjectId,
+       ref: 'organization',
+    },
+  active: {
+    type: Boolean,
+    default: true, // IT Admin or Owner can disable
+  },
   },
   { timestamps: true }
 );

@@ -37,6 +37,10 @@ const ownerSchema = new mongoose.Schema({
     required: true,
     unique: true,
   },
+  organizationId: {
+    type: mongoose.Schema.Types.ObjectId,
+     ref: 'organization',
+  },
 }, { timestamps: true });
 
 export default mongoose.model('Owner', ownerSchema);

@@ -5,6 +5,9 @@ import {findLearnerFolderInDrive, uploadAndOverwriteFile, createDriveFolder,uplo
 import mongoose from 'mongoose';
 // import DbConnection from "../config/db.js"; // your existing file
 import { connectToDatabase } from "../config/db.js"; 
+import { handleErrorResponse } from "../util/errorHandler.js";
+import { ifError } from "assert";
+import { log } from "console";
 
 // <<<<<<<<<<<<< Instructor >>>>>>>>>>>>>>>
 
@@ -57,10 +60,104 @@ const handleValidationError = (error, res) => {
 };
 
 // 📌 Create Instructor with error handling
-const createInstructor = async (req, res) => {
+// const createInstructor = async (req, res) => {
+//   const { username, mobileNumber, password, role } = req.body;
+  
+//   if (!req.branchId) {
+//         const err = new Error("Branch ID is not supported in this endpoint");
+//         err.status = 401;   // set custom status
+//         throw err;
+//       }
+
+//   // Validate required fields
+//   if (!username || !mobileNumber || !password || !role) {
+//     return res.status(400).json({
+//       message: "Missing required fields",
+//       missingFields: {
+//         username: username !== undefined ? "Provided" : "Missing",
+//         mobileNumber: mobileNumber !== undefined ? "Provided" : "Missing",
+//         password: password !== undefined ? "Provided" : "Missing",
+//         role: role !== undefined ? "Provided" : "Missing",
+//       },
+//     });
+//   }
+
+//   try {
+//     if (role === "Admin") {
+//       return res.status(403).json({ message: "Cannot create admin" });
+//     }
+
+//     const newUser = new User({ username, mobileNumber, password, role });
+
+//     delete req.body.username;
+//     delete req.body.password;
+
+//     let newRoleData;
+
+//     if (role === "Instructor") {
+//       delete req.body.role;
+//       newRoleData = new Instructor({ ...req.body });
+//       newUser.refId = newRoleData._id;
+//       newRoleData.userId = newUser._id;
+//       newRoleData.branchId = req.branchId, // ✅ Use branchId from JWT;
+
+//       const fileUrls = {};
+//       const fileFields = ["photo"];
+//       const uploadedFiles = []; // Store uploaded file details for rollback
+
+//       if (req.files) {
+//         for (const field of fileFields) {
+//           if (req.files[field]) {
+//             const file = req.files[field][0];
+
+//             // ✅ Generate a new file name
+//             const fileExtension = file.originalname.split(".").pop();
+//             const newFileName = `${field}_${newRoleData._id}`;
+
+//             file.originalname = newFileName; // Rename before upload
+
+//             // ✅ Upload file
+//             const uploadedFile = await uploadInstructorFile(file);
+//             fileUrls[field] = uploadedFile.webViewLink;
+//             uploadedFiles.push(uploadedFile.id); // Store fileId for rollback
+//           }
+//         }
+//       }
+
+//       newRoleData.photo = fileUrls["photo"];
+
+//       try {
+//         await newRoleData.save();
+//         await newUser.save();
+//         res.status(201).json({
+//           message: `${newUser.role} created successfully`,
+//           instructorData: newRoleData,
+//         });
+//       } catch (dbError) {
+//         // ❌ If MongoDB save fails, delete uploaded files
+//         for (const fileId of uploadedFiles) {
+//           await deleteInstructorFileFromDrive(fileId);
+//         }
+//         throw dbError;
+//       }
+//     } else {
+//       return res.status(500).json({ message: "Error creating user, role undefined" });
+//     }
+//   } catch (error) {
+//     handleErrorResponse(res, error, "Error creating instructor");
+//     console.error("Error in createInstructor:", error);
+//   }
+// };
+
+export const createInstructor = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
   const { username, mobileNumber, password, role } = req.body;
 
-  // Validate required fields
+  if (!req.branchId) {
+    return res.status(401).json({ message: "Branch ID is not supported in this endpoint" });
+  }
+
   if (!username || !mobileNumber || !password || !role) {
     return res.status(400).json({
       message: "Missing required fields",
@@ -73,70 +170,79 @@ const createInstructor = async (req, res) => {
     });
   }
 
+  if (role === "Admin") {
+    return res.status(403).json({ message: "Cannot create admin" });
+  }
+
+  // ✅ define outside so it's accessible in catch
+  const uploadedFiles = [];
+
   try {
-    if (role === "Admin") {
-      return res.status(403).json({ message: "Cannot create admin" });
-    }
-
+    // Step 1: Create User
     const newUser = new User({ username, mobileNumber, password, role });
-
     delete req.body.username;
     delete req.body.password;
 
-    let newRoleData;
-
     if (role === "Instructor") {
       delete req.body.role;
-      newRoleData = new Instructor({ ...req.body });
+      const newRoleData = new Instructor({ ...req.body });
       newUser.refId = newRoleData._id;
+      newUser.refModel = role;
       newRoleData.userId = newUser._id;
+      newRoleData.branchId = req.branchId;
+      newRoleData.organizationId= req.user.organizationId; // Ensure organizationId is set
+
 
       const fileUrls = {};
       const fileFields = ["photo"];
-      const uploadedFiles = []; // Store uploaded file details for rollback
 
       if (req.files) {
         for (const field of fileFields) {
           if (req.files[field]) {
             const file = req.files[field][0];
-
-            // ✅ Generate a new file name
             const fileExtension = file.originalname.split(".").pop();
             const newFileName = `${field}_${newRoleData._id}`;
-
-            file.originalname = newFileName; // Rename before upload
-
-            // ✅ Upload file
+            file.originalname = newFileName;
             const uploadedFile = await uploadInstructorFile(file);
             fileUrls[field] = uploadedFile.webViewLink;
-            uploadedFiles.push(uploadedFile.id); // Store fileId for rollback
+            uploadedFiles.push(uploadedFile.id); // ✅ stored globally
           }
         }
       }
 
+      console.log("File IDs:", uploadedFiles);
       newRoleData.photo = fileUrls["photo"];
 
-      try {
-        await newRoleData.save();
-        await newUser.save();
-        res.status(201).json({
-          message: `${newUser.role} created successfully`,
-          instructorData: newRoleData,
-        });
-      } catch (dbError) {
-        // ❌ If MongoDB save fails, delete uploaded files
-        for (const fileId of uploadedFiles) {
-          await deleteInstructorFileFromDrive(fileId);
-        }
-        throw dbError;
-      }
-    } else {
-      return res.status(500).json({ message: "Error creating user, role undefined" });
+      await newRoleData.save({ session });
+      await newUser.save({ session });
+
+      await session.commitTransaction();
+      session.endSession();
+
+      return res.status(201).json({
+        message: `${newUser.role} created successfully`,
+        instructorData: newRoleData,
+      });
     }
+
+    await session.abortTransaction();
+    session.endSession();
+    return res.status(500).json({ message: "Error creating user, role undefined" });
+
   } catch (error) {
-    handleValidationError(error, res);
+    await session.abortTransaction();
+    session.endSession();
+
+    // ✅ uploadedFiles is always defined (just may be empty)
+    for (const fileId of uploadedFiles) {
+      await deleteInstructorFileFromDrive(fileId);
+    }
+
+    handleErrorResponse(res, error, "Error creating instructor");
+    console.error("Error in createInstructor:", error);
   }
 };
+ 
 
 
 // 📌 READ ALL Instructors

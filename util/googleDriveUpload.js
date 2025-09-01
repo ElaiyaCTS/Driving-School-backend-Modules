@@ -5,11 +5,7 @@ import stream from "stream";
 
 dotenv.config();
 
-// ✅ Google Auth Configuration
-// const auth = new google.auth.GoogleAuth({
-//   keyFile: path.join(process.cwd(), "util/service-account.json"),
-//   scopes: ["https://www.googleapis.com/auth/drive.file"],
-// });
+
 const auth = new google.auth.JWT(
   process.env.GOOGLE_CLIENT_EMAIL,
   null,
@@ -18,6 +14,58 @@ const auth = new google.auth.JWT(
 );
 
 const drive = google.drive({ version: "v3", auth });
+
+
+
+// async function createEmptyFile() {
+//   try {
+//     const fileMetadata = {
+//       name: "empty_sample.txt", // filename
+//       mimeType: "text/plain",   // you can use "application/vnd.google-apps.document" for Docs
+//     };
+
+//     const response = await drive.files.create({
+//       requestBody: fileMetadata,
+//       fields: "id, name, mimeType, webViewLink, webContentLink",
+//     });
+
+//     console.log("✅ Empty file created:", response.data);
+//     return response.data;
+//   } catch (err) {
+//     console.error("❌ Error creating empty file:", err.message);
+//   }
+// }
+
+// createEmptyFile();
+
+
+
+// async function createEmptyFileInFolder() {
+//   try {
+//     const fileMetadata = {
+//       name: "empty_sample.txt",          // file name
+//       mimeType: "text/plain",            // or "application/vnd.google-apps.document"
+//       parents: [process.env.GOOGLE_DRIVE_Admin_ID], // ✅ put inside specific folder
+//     };
+
+//     const response = await drive.files.create({
+//       requestBody: fileMetadata,
+//       fields: "id, name, mimeType, parents, webViewLink, webContentLink",
+//     });
+
+//     console.log("✅ Empty file created in folder:", response.data);
+//     return response.data;
+//   } catch (err) {
+//     console.error("❌ Error creating empty file:", err.message);
+//   }
+// }
+
+// createEmptyFileInFolder();
+
+
+
+
+
 
 /**
  * ✅ Create a Folder in Google Drive
@@ -344,8 +392,8 @@ export const deleteInstructorFileFromDrive = async (fileId) => {
                       
                           return uploadedFile.data; // Return file details (Google Drive URL)
                         } catch (error) {
-                          console.error("❌ Error uploading instructor file:", error);
-                          throw new Error("Instructor file upload failed");
+                          console.error("❌ Error uploading Admin file:", error);
+                          throw new Error("Admin file upload failed");
                         }
                       };
                       
@@ -357,3 +405,6 @@ export const deleteInstructorFileFromDrive = async (fileId) => {
                           console.error(`❌ Error deleting file: ${fileId}` , error);
                         }
                       }; 
+
+
+                      

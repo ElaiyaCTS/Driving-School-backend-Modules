@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 
+
 const instructorSchema = new mongoose.Schema({
   fullName: {
     type: String,
@@ -58,6 +59,19 @@ const instructorSchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
+  },
+   branchId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Branch',
+    default: null, // Optional, can be null if admin is not assigned to a branch
+  },
+    organizationId: {
+    type: mongoose.Schema.Types.ObjectId,
+     ref: 'organization',
+  },
+  active: {
+    type: Boolean,
+    default: true, // IT Admin or Owner can disable
   },
 }, { timestamps: true });
 

@@ -25,7 +25,7 @@ export const createOrganizationWithOwner = async (req, res) => {
       username,
       password,
     } = req.body;
-
+// return
     // Check if mobile/email/username already exists
     const mobileNumberExists = await Owner.findOne({ mobileNumber });
     if (mobileNumberExists) {
@@ -86,6 +86,10 @@ export const createOrganizationWithOwner = async (req, res) => {
       { session }
     );
 
+    // Step 5: Link organizationId to owner
+     newOwner.organizationId = newOrg._id; // Link owner to organization
+    await newOwner.save({ session });
+    
     await session.commitTransaction();
     session.endSession();
 
@@ -156,6 +160,8 @@ export const addCoOwnerToOrganization = async (req, res) => {
           AlternativeNumber,
           address,
           userId: newUser._id,
+      organizationId: orgId, // Ensure organizationId is set
+
         },
       ],
       { session }

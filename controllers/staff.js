@@ -105,7 +105,7 @@ export const createStaff = async (req, res) => {
       await deleteStaffFileFromDrive(fileId);
     }
 
-   handleValidationError(error, res);
+   handleValidationError(err, res);
   }
 };
 

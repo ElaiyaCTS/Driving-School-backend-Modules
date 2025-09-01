@@ -37,7 +37,7 @@ export const connectToDatabase = async () => {
 
   try {
     await mongoose.connect(process.env.MONGO_URI, {
-      dbName: "drivingSchoolDB", // optional but recommended
+      dbName: "DrivingSchoolNow", // optional but recommended
       serverSelectionTimeoutMS: 80000, // longer timeout to avoid Vercel cold start issues
     });
 

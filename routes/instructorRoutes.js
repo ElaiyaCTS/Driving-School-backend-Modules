@@ -4,6 +4,7 @@ import express from "express";
 import userController from "../controllers/InstructorController.js";
 import jwtAuth from "../middlewares/jwtMiddleware.js";
 import multer from "multer";
+import ROLE from "../util/roleGroups.js";
 
 const router = express.Router();
 const storage = multer.memoryStorage();
@@ -17,20 +18,20 @@ const fileFieldsInstead = [
 ];
 
 router.post(
-  "/create-Instructor",jwtAuth(["Admin"]),
+  "/create-Instructor",jwtAuth(ROLE.everyone),
   upload.fields(fileFieldsInstead), // Add this middleware
   userController.createInstructor
 );
 // get all data
-router.get("/instructors", jwtAuth(["Admin","Instructor"]), userController.getAllInstructors);
+router.get("/",jwtAuth(ROLE.everyone), userController.getAllInstructors);
 
 // get single data
-router.get("/instructor/:_id",jwtAuth(["Admin","Instructor"]), userController.getInstructorById);
+router.get("/singleInstructor/:_id",jwtAuth(ROLE.everyone), userController.getInstructorById);
 
 // UPDATE
-router.put("/instructor/:instructorId",jwtAuth(["Admin","Instructor"]),upload.fields(fileFieldsInstead),userController.updateInstructor);
+router.put("/updateInstructor/:instructorId",jwtAuth(ROLE.everyone),upload.fields(fileFieldsInstead),userController.updateInstructor);
 
 // DELETE
-router.delete("/instructor/:_id",jwtAuth(["Admin"]), userController.deleteInstructor);
+router.delete("/deleteInstructor/:_id",jwtAuth(ROLE.everyone), userController.deleteInstructor);
 
 export default router;

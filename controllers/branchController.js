@@ -56,10 +56,12 @@ export const createBranch = async (req, res) => {
 };
 // 📌 Get all branches for an organization
 export const getAllBranches = async (req, res) => {
-  const { organizationId } = req.params;
+  const { organizationId } = req.params;    
 
   try {
-    const branches =await Branch.find().populate('organizationId', 'organizationName');
+    const branches = await Branch.find({ organizationId })
+      .populate('organizationId', 'organizationName')
+      .populate('branchAdmins', 'fullName email'); 
     res.status(200).json(branches);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -80,7 +82,7 @@ export const getBranchById = async (req, res) => {
       select: 'ownerName email mobileNumber' // fields from Owner
     }
   })
-  .populate('branchAdmins', 'name email'); // optional if you want admins too
+  .populate('branchAdmins', 'fullName mobileNumber photo'); // optional if you want admins too
 
     if (!branch) return res.status(404).json({ error: 'Branch not found' });
 
