@@ -125,10 +125,11 @@ export const deleteBranch = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-
+ 
 export const assignBranchAdmin = async (req, res) => {
   const { branchId, adminId } = req.params;
-
+ console.log(req.params);
+ 
   try {
     const branch = await Branch.findById(branchId);
     if (!branch) return res.status(404).json({ error: 'Branch not found' });

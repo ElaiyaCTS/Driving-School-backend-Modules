@@ -37,8 +37,14 @@ router.get('/', jwtAuth(ROLE.superUsers), getAllAdmins);
 // Get a single admin by ID
 router.get('/:adminId', jwtAuth(ROLE.adminLevel), getAdminById);
 
+// Get a single admin by ID form owner
+router.get('/:branchId/:adminId', jwtAuth(ROLE.adminLevel), getAdminById);
+
 // Update admin by ID
-router.put('/:adminId',  upload.fields(fileFieldsInstead),updateAdmin);
+router.put('/:adminId',   jwtAuth(ROLE.adminLevel),upload.fields(fileFieldsInstead),updateAdmin);
+
+// Update admin by ID form owner
+router.put('/:branchId/:adminId',  jwtAuth(ROLE.adminLevel), upload.fields(fileFieldsInstead),updateAdmin);
 
 // Delete admin by ID
 router.delete('/:adminId', deleteAdmin);

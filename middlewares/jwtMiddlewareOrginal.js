@@ -6,7 +6,8 @@ const jwtAuth = (roles = []) => {
   return (req, res, next) => {
     // Read token from httpOnly cookie
     const token = req.cookies.GDS_Token;
-console.log();
+
+
 
     if (!token) {
       return res.status(401).json({ message: 'No token provided' });

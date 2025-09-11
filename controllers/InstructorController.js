@@ -1,10 +1,17 @@
 import User from "../models/userModel.js";
 import Instructor from "../models/InstructorSchema.models.js";
 import Learner from "../models/LearnerSchema.models.js";
-import {findLearnerFolderInDrive, uploadAndOverwriteFile, createDriveFolder,uploadInstructorFile,deleteFolderFromDrive ,deleteInstructorFileFromDrive} from "../util/googleDriveUpload.js";
-import mongoose from 'mongoose';
+import {
+  findLearnerFolderInDrive,
+  uploadAndOverwriteFile,
+  createDriveFolder,
+  uploadInstructorFile,
+  deleteFolderFromDrive,
+  deleteInstructorFileFromDrive,
+} from "../util/googleDriveUpload.js";
+import mongoose from "mongoose";
 // import DbConnection from "../config/db.js"; // your existing file
-import { connectToDatabase } from "../config/db.js"; 
+import { connectToDatabase } from "../config/db.js";
 import { handleErrorResponse } from "../util/errorHandler.js";
 import { ifError } from "assert";
 import { log } from "console";
@@ -15,7 +22,7 @@ import { log } from "console";
 
 const handleValidationError = (error, res) => {
   // console.log(error);
-  
+
   const toTitleCase = (str) =>
     str.charAt(0).toUpperCase() + str.slice(1).replace(/([A-Z])/g, " $1");
 
@@ -62,7 +69,7 @@ const handleValidationError = (error, res) => {
 // 📌 Create Instructor with error handling
 // const createInstructor = async (req, res) => {
 //   const { username, mobileNumber, password, role } = req.body;
-  
+
 //   if (!req.branchId) {
 //         const err = new Error("Branch ID is not supported in this endpoint");
 //         err.status = 401;   // set custom status
@@ -152,10 +159,12 @@ const handleValidationError = (error, res) => {
 export const createInstructor = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
-  const { username, mobileNumber, password, role } = req.body;
-
+  const { username, mobileNumber, password } = req.body;
+  const role = "Instructor";
   if (!req.branchId) {
-    return res.status(401).json({ message: "Branch ID is not supported in this endpoint" });
+    return res
+      .status(401)
+      .json({ message: "Branch ID is not supported in this endpoint" });
   }
 
   if (!username || !mobileNumber || !password || !role) {
@@ -190,8 +199,7 @@ export const createInstructor = async (req, res) => {
       newUser.refModel = role;
       newRoleData.userId = newUser._id;
       newRoleData.branchId = req.branchId;
-      newRoleData.organizationId= req.user.organizationId; // Ensure organizationId is set
-
+      newRoleData.organizationId = req.user?.organizationId; // Ensure organizationId is set
 
       const fileUrls = {};
       const fileFields = ["photo"];
@@ -227,8 +235,9 @@ export const createInstructor = async (req, res) => {
 
     await session.abortTransaction();
     session.endSession();
-    return res.status(500).json({ message: "Error creating user, role undefined" });
-
+    return res
+      .status(500)
+      .json({ message: "Error creating user, role undefined" });
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
@@ -242,26 +251,39 @@ export const createInstructor = async (req, res) => {
     console.error("Error in createInstructor:", error);
   }
 };
- 
-
 
 // 📌 READ ALL Instructors
 const getAllInstructors = async (req, res) => {
   try {
+    if (!req.branchId) {
+      return res
+        .status(401)
+        .json({ message: "Branch ID is required for this endpoint" });
+    }
+
+    if (!req.user?.organizationId) {
+      return res
+        .status(401)
+        .json({ message: "Organization ID is required for this endpoint" });
+    }
+    const branchId = req.branchId || req.query.branchId;
+    const organizationId = req.user?.organizationId || req.query.organizationId;
     const { fromdate, todate, search, gender } = req.query;
-        
+
     let page = parseInt(req.query.page, 10);
     page = isNaN(page) || page < 1 ? 1 : page; // Ensure page is always >= 1
-    
+
     let limit = parseInt(req.query.limit, 10);
     limit = isNaN(limit) || limit < 1 ? 15 : limit; // Ensure limit is always >= 1
-    
-    
-    let searchFilter = {};
+
+    let searchFilter = {
+      branchId,
+      organizationId,
+    };
     // Exclude instructor with _id: 67e84533440e905b74bb8763
     const excludeId = new mongoose.Types.ObjectId(process.env.AdminId); // Use AdminId from .env
-    searchFilter._id = { $ne: excludeId }; 
-    
+    searchFilter._id = { $ne: excludeId };
+
     // Convert fromdate and todate to Date objects
     let fromDateObj = fromdate ? new Date(fromdate) : null;
     let toDateObj = todate ? new Date(todate) : null;
@@ -297,26 +319,27 @@ const getAllInstructors = async (req, res) => {
 
     // Apply pagination
     const instructors = await Instructor.find(searchFilter)
-    .sort({ createdAt: -1 }) // Ensure LIFO order (latest first)
+      .sort({ createdAt: -1 }) // Ensure LIFO order (latest first)
       .populate("userId", "username mobileNumber role password") // Keep existing populate
       .skip((page - 1) * limit) // Skip previous pages
-      .limit(parseInt(limit)) // Limit per-page records
-      // .lean(); // Convert to plain objects
+      .limit(parseInt(limit)); // Limit per-page records
+    // .lean(); // Convert to plain objects
 
- // Convert to plain objects and inject decrypted password
- const instructorsWithDecrypted = instructors.map((instructors) => {
-  const instructorsObj = instructors.toObject();
+    // Convert to plain objects and inject decrypted password
+    const instructorsWithDecrypted = instructors.map((instructors) => {
+      const instructorsObj = instructors.toObject();
 
-  if (instructorsObj.userId && instructorsObj.userId.decryptedPassword) {
-    // Replace encrypted password with decrypted one
-    instructorsObj.userId.password = instructorsObj.userId.decryptedPassword;
+      if (instructorsObj.userId && instructorsObj.userId.decryptedPassword) {
+        // Replace encrypted password with decrypted one
+        instructorsObj.userId.password =
+          instructorsObj.userId.decryptedPassword;
 
-    // Optionally remove decryptedPassword from output
-    delete instructorsObj.userId.decryptedPassword;
-  }
+        // Optionally remove decryptedPassword from output
+        delete instructorsObj.userId.decryptedPassword;
+      }
 
-  return instructorsObj;
-  });
+      return instructorsObj;
+    });
 
     // Count instructors in the current page
     const currentInstructors = instructorsWithDecrypted.length;
@@ -332,50 +355,84 @@ const getAllInstructors = async (req, res) => {
       currentInstructors, // ✅ New field added
       instructorsWithDecrypted,
     });
-
-  }  catch (error) {
+  } catch (error) {
     handleValidationError(error, res);
   }
 };
 
-
 // 📌 GET Single Instructor by _id
 const getInstructorById = async (req, res) => {
+  if (!req.branchId) {
+    return res
+      .status(401)
+      .json({ message: "Branch ID is required for this endpoint" });
+  }
+
+  if (!req.user?.organizationId) {
+    return res
+      .status(401)
+      .json({ message: "Organization ID is required for this endpoint" });
+  }
+  const branchId = req.branchId || req.query.branchId;
+  const organizationId = req.user?.organizationId || req.query.organizationId;
   try {
     const { _id } = req.params; // Get _id from request params
 
     // Find instructor by _id and populate user details
-    const instructor = await Instructor.findById(_id).populate("userId", "username mobileNumber role password ");
+    const instructor = await Instructor.findOne({
+      _id,
+      branchId,
+      organizationId,
+    }).populate("userId", "username mobileNumber role password ");
 
     // If no instructor found, return 404
     if (!instructor) {
       return res.status(404).json({ message: "Instructor not found" });
     }
- // Convert to plain object
- const instructorsObj = instructor.toObject();
+    // Convert to plain object
+    const instructorsObj = instructor.toObject();
 
- // Replace encrypted password with decrypted password
- if (instructorsObj.userId && instructorsObj.userId.decryptedPassword) {
-   instructorsObj.userId.password = instructorsObj.userId.decryptedPassword;
-   delete instructorsObj.userId.decryptedPassword; // Optional: clean up
- }
+    // Replace encrypted password with decrypted password
+    if (instructorsObj.userId && instructorsObj.userId.decryptedPassword) {
+      instructorsObj.userId.password = instructorsObj.userId.decryptedPassword;
+      delete instructorsObj.userId.decryptedPassword; // Optional: clean up
+    }
 
     // Return the learners data
     res.status(200).json(instructorsObj);
     // Return the instructor data
     // res.status(200).json(instructor);
-  }  catch (error) {
+  } catch (error) {
     handleValidationError(error, res);
   }
 };
 
-  // 📌 UPDATE Instructor
+// 📌 UPDATE Instructor
 
 const updateInstructor = async (req, res) => {
+  console.log("updateInstructor");
+
+  if (!req.branchId) {
+    return res
+      .status(401)
+      .json({ message: "Branch ID is required for this endpoint" });
+  }
+
+  if (!req.user?.organizationId) {
+    return res
+      .status(401)
+      .json({ message: "Organization ID is required for this endpoint" });
+  }
+  const branchId = req.branchId || req.query.branchId;
+  const organizationId = req.user?.organizationId || req.query.organizationId;
   const { instructorId } = req.params;
   try {
     // ✅ Find the instructor
-    const instructor = await Instructor.findById(instructorId);
+    const instructor = await Instructor.findOne({
+      _id:instructorId,
+      branchId,
+      organizationId,
+    });
     if (!instructor) {
       return res.status(404).json({ message: "Instructor not found" });
     }
@@ -399,7 +456,7 @@ const updateInstructor = async (req, res) => {
 
       // 📌 Generate a consistent file name: "photo_instructorId"
       const newFileName = `photo_${instructorId}`;
-      
+
       // ✅ Rename the file before uploading
       file.originalname = newFileName;
 
@@ -407,43 +464,59 @@ const updateInstructor = async (req, res) => {
       const uploadedFile = await uploadInstructorFile(file);
       instructor.photo = uploadedFile.webViewLink; // Update photo URL
     }
-    // return 
+    // return
     // ✅ Save updated instructor details
     await instructor.save();
 
     // ✅ Sync username and mobileNumber in the User collection
     if (req.body.username) user.username = req.body.username;
-    if (req.body.mobileNumber) user.mobileNumber = req.body.mobileNumber; 
-    if (req.body.password) user.password = req.body.password; 
+    if (req.body.mobileNumber) user.mobileNumber = req.body.mobileNumber;
+    if (req.body.password) user.password = req.body.password;
 
     await user.save();
 
-    res.status(200).json({ message: "Instructor updated successfully", instructor });
+    res
+      .status(200)
+      .json({ message: "Instructor updated successfully", instructor });
+  } catch (error) {
+    console.log(error);
+return
+    // handleValidationError(error, res);
+  }
+};
 
-  }  catch (error) {
+// 📌 DELETE Instructor
+const deleteInstructor = async (req, res) => {
+  if (!req.branchId) {
+    return res
+      .status(401)
+      .json({ message: "Branch ID is required for this endpoint" });
+  }
+
+  if (!req.user?.organizationId) {
+    return res
+      .status(401)
+      .json({ message: "Organization ID is required for this endpoint" });
+  }
+  const branchId = req.branchId || req.query.branchId;
+  const organizationId = req.user?.organizationId || req.query.organizationId;
+  try {
+    const { _id } = req.params;
+
+    const instructor = await Instructor.findOne(_id, branchId, organizationId);
+    if (!instructor) {
+      return res.status(404).json({ message: "Instructor not found" });
+    }
+
+    await User.findByIdAndDelete(instructor.userId); // Delete linked user
+    await Instructor.findByIdAndDelete(_id);
+
+    res.status(200).json({ message: "Instructor deleted successfully" });
+  } catch (error) {
     handleValidationError(error, res);
   }
 };
 
-  // 📌 DELETE Instructor
-  const deleteInstructor = async (req, res) => {
-    try {
-      const { _id } = req.params;
-  
-      const instructor = await Instructor.findById(_id);
-      if (!instructor) {
-        return res.status(404).json({ message: "Instructor not found" });
-      }
-  
-      await User.findByIdAndDelete(instructor.userId); // Delete linked user
-      await Instructor.findByIdAndDelete(_id);
-  
-      res.status(200).json({ message: "Instructor deleted successfully" });
-    }  catch (error) {
-    handleValidationError(error, res);
-  }
-  };
- 
 export default {
   createInstructor,
   getAllInstructors,

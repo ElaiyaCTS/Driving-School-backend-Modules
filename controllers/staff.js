@@ -1,10 +1,17 @@
-import Staff from '../models/StaffSchema.models.js';
-import {findLearnerFolderInDrive, uploadAndOverwriteFile, createDriveFolder,uploadStaffFile,deleteFolderFromDrive ,deleteStaffFileFromDrive} from "../util/googleDriveUpload.js";
-import mongoose from 'mongoose';
+import Staff from "../models/StaffSchema.models.js";
+import {
+  findLearnerFolderInDrive,
+  uploadAndOverwriteFile,
+  createDriveFolder,
+  uploadStaffFile,
+  deleteFolderFromDrive,
+  deleteStaffFileFromDrive,
+} from "../util/googleDriveUpload.js";
+import mongoose from "mongoose";
 
 const handleValidationError = (error, res) => {
   // console.log(error);
-  
+
   const toTitleCase = (str) =>
     str.charAt(0).toUpperCase() + str.slice(1).replace(/([A-Z])/g, " $1");
 
@@ -48,29 +55,42 @@ const handleValidationError = (error, res) => {
   return res.status(500).json({ message: "Internal server error" });
 };
 
-
 // Create a new staff
 export const createStaff = async (req, res) => {
+    
+  const branchId = req.branchId || req.params.branchId;
+  const organizationId = req.user?.organizationId || req.params.organizationId;
+  //   console.log(organizationId);
+
+  if (!branchId) {
+    return res
+      .status(401)
+      .json({ message: "Branch ID is required for this endpoint" });
+  }
+
+  if (!organizationId) {
+    return res
+      .status(401)
+      .json({ message: "Organization ID is required for this endpoint" });
+  }
+
   const session = await Staff.startSession();
   session.startTransaction();
 
-  
   let uploadedFiles = [];
 
   try {
-    const newStaff = new Staff(req.body);
+    const data = { ...req.body, branchId, organizationId };
+    const newStaff = new Staff(data);
 
     const fileUrls = {};
     const fileFields = ["photo"];
 
     // Upload files BEFORE saving staff
     if (req.files) {
-      
-
       for (const field of fileFields) {
         if (req.files?.[field]?.[0]) {
           const file = req.files[field][0];
-          
 
           const fileExtension = file.originalname.split(".").pop();
           const newFileName = `${field}_${newStaff._id || Date.now()}`;
@@ -105,23 +125,37 @@ export const createStaff = async (req, res) => {
       await deleteStaffFileFromDrive(fileId);
     }
 
-   handleValidationError(err, res);
+    handleValidationError(err, res);
   }
 };
 
 // 📌   // Get all staff members
 export const getAllStaff = async (req, res) => {
   try {
+    const branchId = req.branchId || req.params.branchId;
+    const organizationId = req.user?.organizationId || req.params.organizationId;
+    //   console.log(organizationId);
+
+    if (!branchId) {
+      return res
+        .status(401)
+        .json({ message: "Branch ID is required for this endpoint" });
+    }
+
+    if (!organizationId) {
+      return res
+        .status(401)
+        .json({ message: "Organization ID is required for this endpoint" });
+    }
     const { fromdate, todate, search, gender } = req.query;
-        
+
     let page = parseInt(req.query.page, 10);
     page = isNaN(page) || page < 1 ? 1 : page; // Ensure page is always >= 1
-    
+
     let limit = parseInt(req.query.limit, 10);
     limit = isNaN(limit) || limit < 1 ? 15 : limit; // Ensure limit is always >= 1
-    
-    
-    let searchFilter = {};
+
+    let searchFilter = { organizationId, branchId };
 
     // Convert fromdate and todate to Date objects
     let fromDateObj = fromdate ? new Date(fromdate) : null;
@@ -138,7 +172,7 @@ export const getAllStaff = async (req, res) => {
 
     // Apply gender filtering if provided
     if (gender) {
-      searchFilter.gender ={ $regex: gender.trim(), $options: "i" };
+      searchFilter.gender = { $regex: gender.trim(), $options: "i" };
     }
 
     // Apply search filter (if any)
@@ -158,18 +192,14 @@ export const getAllStaff = async (req, res) => {
 
     // Apply pagination
     const staffList = await Staff.find(searchFilter)
-    .sort({ createdAt: -1 }) // Ensure LIFO order (latest first)
+      .sort({ createdAt: -1 }) // Ensure LIFO order (latest first)
       // .populate("userId", "username mobileNumber role password") // Keep existing populate
       .skip((page - 1) * limit) // Skip previous pages
-      .limit(parseInt(limit)) // Limit per-page records
-      // .lean(); // Convert to plain objects
-
+      .limit(parseInt(limit)); // Limit per-page records
+    // .lean(); // Convert to plain objects
 
     // Count staffList in the current page
     const currentStaff = staffList.length;
-
-
-
 
     // Calculate total pages
     const totalPages = Math.ceil(totalstaffList / limit);
@@ -182,23 +212,43 @@ export const getAllStaff = async (req, res) => {
       currentStaff, // ✅ New field added
       staffList,
     });
-
   } catch (err) {
     handleValidationError(error, res);
   }
 };
 
-
 // Get single staff by ID
 export const getStaffById = async (req, res) => {
   try {
-    const staff = await Staff.findById(req.params.id);
-    if (!staff) {
-      return res.status(404).json({ success: false, message: "Staff not found" });
+    const branchId = req.branchId || req.params.branchId;
+    const organizationId = req.user?.organizationId || req.params.organizationId;
+    //   console.log(organizationId);
+
+    if (!branchId) {
+      return res
+        .status(401)
+        .json({ message: "Branch ID is required for this endpoint" });
     }
-    res.status(200).json({ success: true,  staff });
+
+    if (!organizationId) {
+      return res
+        .status(401)
+        .json({ message: "Organization ID is required for this endpoint" });
+    }
+
+    const staff = await Staff.findOne({
+      _id: req.params.id,
+      organizationId,
+      branchId,
+    });
+    if (!staff) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Staff not found" });
+    }
+    res.status(200).json({ success: true, staff });
   } catch (error) {
-   handleValidationError(error, res);
+    handleValidationError(error, res);
   }
 };
 
@@ -207,7 +257,7 @@ export const getStaffById = async (req, res) => {
 //   try {
 //     const updatedStaff = await Staff.findByIdAndUpdate(
 //       req.params.id,
-//       req.body,
+//       data,
 //       { new: true, runValidators: true }
 //     );
 //     if (!updatedStaff) {
@@ -219,6 +269,21 @@ export const getStaffById = async (req, res) => {
 //   }
 // };
 export const updateStaff = async (req, res) => {
+  const branchId = req.branchId || req.params.branchId;
+  const organizationId = req.user?.organizationId || req.params.organizationId;
+  //   console.log(organizationId);
+
+  if (!branchId) {
+    return res
+      .status(401)
+      .json({ message: "Branch ID is required for this endpoint" });
+  }
+
+  if (!organizationId) {
+    return res
+      .status(401)
+      .json({ message: "Organization ID is required for this endpoint" });
+  }
   const session = await Staff.startSession();
   session.startTransaction();
 
@@ -227,7 +292,11 @@ export const updateStaff = async (req, res) => {
   try {
     const { id } = req.params;
     // Step 1: Find existing staff
-    const existingStaff = await Staff.findById(id).session(session);
+    const existingStaff = await Staff.findOne({
+      _id: id,
+      organizationId,
+      branchId,
+    }).session(session);
     if (!existingStaff) {
       throw new Error("Staff not found");
     }
@@ -300,11 +369,35 @@ export const updateStaff = async (req, res) => {
 // Delete staff by ID
 export const deleteStaff = async (req, res) => {
   try {
-    const deletedStaff = await Staff.findByIdAndDelete(req.params.id);
-    if (!deletedStaff) {
-      return res.status(404).json({ success: false, message: "Staff not found" });
+
+    const branchId = req.branchId || req.params.branchId;
+    const organizationId = req.user?.organizationId || req.params.organizationId;
+
+    if (!branchId) {
+      return res
+        .status(401)
+        .json({ message: "Branch ID is required for this endpoint" });
     }
-    res.status(200).json({ success: true, message: "Staff deleted successfully" });
+
+    if (!organizationId) {
+      return res
+        .status(401)
+        .json({ message: "Organization ID is required for this endpoint" });
+    }
+    const deletedStaff = await Staff.findOneAndDelete({
+      _id: req.params.id,
+      organizationId,
+      branchId,
+    });
+
+    if (!deletedStaff) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Staff not found" });
+    }
+    res
+      .status(200)
+      .json({ success: true, message: "Staff deleted successfully" });
   } catch (error) {
     handleValidationError(error, res);
   }

@@ -1,5 +1,4 @@
-import Course from '../models/CourseSchema.models.js';
-
+import Course from "../models/CourseSchema.models.js";
 
 // 🔧 Reusable Validation Error Handler
 // const handleValidationError = (error, res) => {
@@ -20,13 +19,13 @@ import Course from '../models/CourseSchema.models.js';
 
 const handleValidationError = (error, res) => {
   const toTitleCase = (str) =>
-    str.charAt(0).toUpperCase() + str.slice(1).replace(/([A-Z])/g, ' $1');
+    str.charAt(0).toUpperCase() + str.slice(1).replace(/([A-Z])/g, " $1");
 
-  if (error.name === 'ValidationError') {
+  if (error.name === "ValidationError") {
     const errors = Object.values(error.errors).map((err) => {
-      const field = toTitleCase(err.path || 'Field');
+      const field = toTitleCase(err.path || "Field");
 
-      if (err.name === 'CastError') {
+      if (err.name === "CastError") {
         // Special handling for nested CastError inside ValidationError
         if (err.value === null) {
           return `${field} must not be null`;
@@ -35,16 +34,16 @@ const handleValidationError = (error, res) => {
         } else {
           return `${field} must be a valid ${err.kind}`;
         }
-      } 
+      }
 
       return `${field} is invalid: ${err.message}`;
     });
 
-    return res.status(400).json({ message: 'Validation failed', errors });
+    return res.status(400).json({ message: "Validation failed", errors });
   }
 
-  if (error.name === 'CastError') {
-    const field = toTitleCase(error.path || 'Field');
+  if (error.name === "CastError") {
+    const field = toTitleCase(error.path || "Field");
     let message;
 
     if (error.value === null) {
@@ -56,18 +55,34 @@ const handleValidationError = (error, res) => {
     }
 
     return res.status(400).json({
-      message: 'Validation failed',
+      message: "Validation failed",
       errors: [message],
     });
   }
 
-  console.error('❌ Unhandled Error:', error);
-  return res.status(500).json({ message: 'Internal server error' });
+  console.error("❌ Unhandled Error:", error);
+  return res.status(500).json({ message: "Internal server error" });
 };
 // 📌 CREATE Course
 export const createCourse = async (req, res) => {
+  const branchId = req.branchId || req.params.branchId;
+  const organizationId = req.user?.organizationId || req.params.organizationId;
+
+  if (!branchId) {
+    return res
+      .status(401)
+      .json({ message: "Branch ID is required for this endpoint" });
+  }
+
+  if (!organizationId) {
+    return res
+      .status(401)
+      .json({ message: "Organization ID is required for this endpoint" });
+  }
+
   try {
-    const course = new Course(req.body);
+    const data = { ...req.body, branchId, organizationId };
+    const course = new Course(data);
     await course.save();
     res.status(201).json(course);
   } catch (error) {
@@ -75,9 +90,22 @@ export const createCourse = async (req, res) => {
   }
 };
 
-
 // 📌 GET ALL COURSES (With Pagination & Search)
 export const getCourses = async (req, res) => {
+  const branchId = req.branchId || req.params.branchId;
+  const organizationId = req.user?.organizationId || req.params.organizationId;
+
+  if (!branchId) {
+    return res
+      .status(401)
+      .json({ message: "Branch ID is required for this endpoint" });
+  }
+
+  if (!organizationId) {
+    return res
+      .status(401)
+      .json({ message: "Organization ID is required for this endpoint" });
+  }
   try {
     const { search } = req.query;
     let page = parseInt(req.query.page, 10);
@@ -86,7 +114,7 @@ export const getCourses = async (req, res) => {
     // If page & limit are missing, fetch all courses
     const paginate = !isNaN(page) && !isNaN(limit) && page > 0 && limit > 0;
 
-    let searchFilter = {};
+    let searchFilter = { branchId, organizationId };
 
     if (search) {
       const trimmedSearch = search.trim();
@@ -97,7 +125,7 @@ export const getCourses = async (req, res) => {
           { duration: parseInt(trimmedSearch) },
           { practicalDays: parseInt(trimmedSearch) },
           { theoryDays: parseInt(trimmedSearch) },
-          { fee: parseInt(trimmedSearch) }
+          { fee: parseInt(trimmedSearch) },
         ];
       } else {
         // If search input is text, use regex for courseName
@@ -109,8 +137,8 @@ export const getCourses = async (req, res) => {
     const totalCourses = await Course.countDocuments(searchFilter);
 
     let query = Course.find(searchFilter)
-    .sort({ createdAt: -1 }) // Ensure LIFO ordering
-    .lean(); // Convert to plain object
+      .sort({ createdAt: -1 }) // Ensure LIFO ordering
+      .lean(); // Convert to plain object
 
     // Apply pagination only if page & limit exist
     if (paginate) {
@@ -128,42 +156,88 @@ export const getCourses = async (req, res) => {
       currentCourses: courses.length,
       courses,
     });
-
   } catch (error) {
     res.status(500).json({ message: "Server Error", error });
   }
 };
 
-
 // Get Course by _id
 export const getCourseById = async (req, res) => {
+  const branchId = req.branchId || req.params.branchId;
+  const organizationId = req.user?.organizationId || req.params.organizationId;
+  const id = req.params._id;
+  if (!branchId) {
+    return res
+      .status(401)
+      .json({ message: "Branch ID is required for this endpoint" });
+  }
+
+  if (!organizationId) {
+    return res
+      .status(401)
+      .json({ message: "Organization ID is required for this endpoint" });
+  }
+
   try {
-    const course = await Course.findById(req.params._id);
-    if (!course) return res.status(404).json({ message: 'Course not found' });
+    const course = await Course.findOne({ _id:id, organizationId, branchId });
+    if (!course) return res.status(404).json({ message: "Course not found" });
     res.status(200).json(course);
   } catch (error) {
-        handleValidationError(error, res);
+    handleValidationError(error, res);
   }
 };
 
 // Update Course by _id
 export const updateCourse = async (req, res) => {
+  const branchId = req.branchId || req.params.branchId;
+  const organizationId = req.user?.organizationId || req.params.organizationId;
+  const id = req.params._id;
+  if (!branchId) {
+    return res
+      .status(401)
+      .json({ message: "Branch ID is required for this endpoint" });
+  }
+
+  if (!organizationId) {
+    return res
+      .status(401)
+      .json({ message: "Organization ID is required for this endpoint" });
+  }
   try {
-    const course = await Course.findByIdAndUpdate(req.params._id, req.body, { new: true, runValidators: true });
-    if (!course) return res.status(404).json({ message: 'Course not found' });
+    const course = await Course.findOneAndUpdate(
+      { _id: id, organizationId, branchId }, // filter
+      req.body, // update
+      { new: true, runValidators: true } // options
+    );
+
+    if (!course) return res.status(404).json({ message: "Course not found" });
     res.status(200).json(course);
   } catch (error) {
-       handleValidationError(error, res);
+    handleValidationError(error, res);
   }
 };
 
 // Delete Course by _id
 export const deleteCourse = async (req, res) => {
+  const  id  = req.params._id;
+  const branchId = req.branchId || req.params.branchId;
+  const organizationId = req.user?.organizationId || req.params.organizationId;
+  if (!branchId) {
+    return res
+      .status(401)
+      .json({ message: "Branch ID is required for this endpoint" });
+  }
+  if (!organizationId) {
+    return res.status(401).json({ message: "Organization ID is required" });
+  }
+
   try {
-    const course = await Course.findByIdAndDelete(req.params._id);
-    if (!course) return res.status(404).json({ message: 'Course not found' });
-    res.status(200).json({ message: 'Course deleted successfully' });
+   const filter = { _id: id, organizationId };
+    if (branchId) filter.branchId = branchId;
+    const deletedCourse = await Course.findOneAndDelete(filter);
+    if (!deletedCourse) return res.status(404).json({ message: "Course not found" });
+    res.status(200).json({ message: "Course deleted successfully" });
   } catch (error) {
-       handleValidationError(error, res);
+    handleValidationError(error, res);
   }
 };

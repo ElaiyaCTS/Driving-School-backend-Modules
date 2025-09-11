@@ -38,6 +38,15 @@ const AttendanceSchema = new mongoose.Schema(
       ref: 'User',
       required: [true, 'Created by (User) is required.'],
     },
+      branchId: {
+         type: mongoose.Schema.Types.ObjectId,
+         ref: 'Branch',
+         default: null, // Optional, can be null if admin is not assigned to a branch
+       },
+         organizationId: {
+             type: mongoose.Schema.Types.ObjectId,
+              ref: 'organization',
+         },
   },
   { timestamps: true }
 );

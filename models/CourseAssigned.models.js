@@ -22,7 +22,17 @@ const CourseAssignedSchema = new mongoose.Schema(
       enum: ["Ready to test",'Extra class'], 
       default: null, // Ensures no default value
       // select: false // Prevents it from being included in queries unless explicitly requested
-    }
+    },
+    organizationId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Organization',
+      required: true,
+    },
+    branchId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Branch',
+      default: null, // Optional, can be null if admin is not assigned to a branch
+    },
   }, 
   { timestamps: true }
 );

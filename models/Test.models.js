@@ -26,7 +26,16 @@ const TestSchema = new mongoose.Schema(
         message: "Invalid result"
       },
       default: "Scheduled"
-    }
+    },
+      branchId: {
+         type: mongoose.Schema.Types.ObjectId,
+         ref: 'Branch',
+         default: null, // Optional, can be null if admin is not assigned to a branch
+       },
+         organizationId: {
+             type: mongoose.Schema.Types.ObjectId,
+              ref: 'organization',
+         },
   },
   { timestamps: true }
 );

@@ -1,11 +1,12 @@
-
-import Admin from '../models/adminModel.js';
-import User from '../models/userModel.js';
-import Branch from '../models/branchModel.js';
-import mongoose from 'mongoose';
-import { uploadAdminFile, deleteAdminFileFromDrive } from '../util/googleDriveUpload.js';
-import { handleErrorResponse } from '../util/errorHandler.js';
-
+import Admin from "../models/adminModel.js";
+import User from "../models/userModel.js";
+import Branch from "../models/branchModel.js";
+import mongoose from "mongoose";
+import {
+  uploadAdminFile,
+  deleteAdminFileFromDrive,
+} from "../util/googleDriveUpload.js";
+import { handleErrorResponse } from "../util/errorHandler.js";
 
 // Helper to check valid ObjectId
 const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
@@ -18,29 +19,45 @@ export const createAdmin = async (req, res) => {
 
   try {
     const {
-      fullName, fathersName, mobileNumber, dateOfBirth,
-      gender, bloodGroup, address, joinDate, email,
-      username, password, branchId
+      fullName,
+      fathersName,
+      mobileNumber,
+      dateOfBirth,
+      gender,
+      bloodGroup,
+      address,
+      joinDate,
+      email,
+      username,
+      password,
+      branchId,
     } = req.body;
-           
+
     // ✅ Validate branchId early if provided
     let branchExists = null;
     if (branchId) {
       if (!isValidObjectId(branchId)) {
-        throw new Error('Invalid Branch ID format');
+        throw new Error("Invalid Branch ID format");
       }
       branchExists = await Branch.findById(branchId).session(session);
       if (!branchExists) {
-        throw new Error('Branch not found');
+        throw new Error("Branch not found");
       }
     }
 
     // ✅ Prepare new Admin instance
     const newAdmin = new Admin({
-      fullName, fathersName, mobileNumber, dateOfBirth,
-      gender, bloodGroup, address, joinDate, email, 
-     organizationId: req.user.organizationId,
-      branchId: branchId || null
+      fullName,
+      fathersName,
+      mobileNumber,
+      dateOfBirth,
+      gender,
+      bloodGroup,
+      address,
+      joinDate,
+      email,
+      organizationId: req.user?.organizationId,
+      branchId: branchId || null,
     });
 
     // ✅ Handle photo upload if provided
@@ -49,7 +66,7 @@ export const createAdmin = async (req, res) => {
 
       // Check file size (5 MB max)
       if (file.size > 5 * 1024 * 1024) {
-        throw new Error('Photo must be less than 5 MB');
+        throw new Error("Photo must be less than 5 MB");
       }
 
       const newFileName = `photo_${newAdmin._id || Date.now()}`;
@@ -65,34 +82,45 @@ export const createAdmin = async (req, res) => {
     await newAdmin.save({ session });
 
     // ✅ Create linked User
-    const user = await User.create([{
-      username,
-      password,
-      role: 'Admin',
-      refId: newAdmin._id,
-      refModel: 'Admin',
-    }], { session });
+    const user = await User.create(
+      [
+        {
+          username,
+          password,
+          role: "Admin",
+          refId: newAdmin._id,
+          refModel: "Admin",
+        },
+      ],
+      { session }
+    );
 
     // ✅ Update admin with userId
-    await Admin.findByIdAndUpdate(newAdmin._id, {
-      userId: user[0]._id
-    }, { session });
+    await Admin.findByIdAndUpdate(
+      newAdmin._id,
+      {
+        userId: user[0]._id,
+      },
+      { session }
+    );
 
     // ✅ If branch provided, push admin into branchAdmins
     if (branchExists) {
-      await branchExists.updateOne({
-        $push: { branchAdmins: newAdmin._id }
-      }, { session });
+      await branchExists.updateOne(
+        {
+          $push: { branchAdmins: newAdmin._id },
+        },
+        { session }
+      );
     }
 
     await session.commitTransaction();
     session.endSession();
 
     res.status(201).json({
-      message: 'Admin created successfully',
-      data: newAdmin
+      message: "Admin created successfully",
+      data: newAdmin,
     });
-
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
@@ -101,117 +129,157 @@ export const createAdmin = async (req, res) => {
     for (const fileId of uploadedFiles) {
       await deleteAdminFileFromDrive(fileId);
     }
-    handleErrorResponse(res, error,  'Admin creation failed');
+    handleErrorResponse(res, error, "Admin creation failed");
   }
 };
 
 // ✅ Get all admins
 export const getAllAdmins = async (req, res) => {
-//   const { organizationId } = req.params;    
-// if (!req.branchId) {
-//   return res.status(401).json({ message: "Branch ID is required for this endpoint" });
-// }
+  //   const { organizationId } = req.params;
+  // if (!req.branchId) {
+  //   return res.status(401).json({ message: "Branch ID is required for this endpoint" });
+  // }
 
-if (!req.user?.organizationId) {
-  return res.status(401).json({ message: "Organization ID is required for this endpoint" });
-}
-// const branchId = req.branchId || req.query.branchId;
-const organizationId = req.user.organizationId || req.query.organizationId;
-const branchId = req.params||null; 
+  if (!req.user?.organizationId) {
+    return res
+      .status(401)
+      .json({ message: "Organization ID is required for this endpoint" });
+  }
+  // const branchId = req.branchId || req.query.branchId;
+  const organizationId = req.user?.organizationId || req.query.organizationId;
+  const branchId = req.params || null;
 
-console.log("Matched path:", req.route.path); 
+  // console.log("Matched path:", req.route.path);
   // will log either '/:organizationId' or '/un-assigned-admin/:organizationId'
 
-  if (req.route.path === '/un-assigned-admin') {
+  if (req.route.path === "/un-assigned-admin") {
     // Unassigned admins
     try {
       const un_assigned_admins = await Admin.find({
         organizationId,
-        $or: [
-          { branchId: null },              
-          { branchId: { $exists: false } } 
-        ]
-      }).populate('userId', 'username role');
+        $or: [{ branchId: null }, { branchId: { $exists: false } }],
+      }).populate("userId", "username role");
 
-      res.json({ message: 'Unassigned admins fetched successfully', data: un_assigned_admins });
+      res.json({
+        message: "Unassigned admins fetched successfully",
+        data: un_assigned_admins,
+      });
     } catch (error) {
       handleErrorResponse(res, error);
     }
-  } 
-  else if (req.route.path === '/') {
+  } else if (req.route.path === "/") {
     // Normal admins (assigned or all, depending on your need)
     try {
       const admins = await Admin.find({ organizationId })
-        .populate('branchId', 'branchName')
-        .populate('userId', 'username role');
+        .populate("branchId", "branchName")
+        .populate("userId", "username role");
 
-      res.json({ message: 'Admins fetched successfully', data: admins });
+      res.json({ message: "Admins fetched successfully", data: admins });
     } catch (error) {
       handleErrorResponse(res, error);
     }
-  }
-  else if (req.route.path === '/get-assigned-admin/:branchId') {
-    
+  } else if (req.route.path === "/get-assigned-admin/:branchId") {
     try {
-        if (!branchId) {
-            return res.status(409).json({ message: "Branch ID is required for this endpoint"})
-        }
-      const admins = await Admin.find({ organizationId,branchId })
-        .populate('branchId', 'branchName')
-        .populate('userId', 'username role');
+      if (!branchId) {
+        return res
+          .status(409)
+          .json({ message: "Branch ID is required for this endpoint" });
+      }
+      const admins = await Admin.find({ organizationId, branchId })
+        .populate("branchId", "branchName")
+        .populate("userId", "username role");
 
-      res.json({ message: 'Admins fetched successfully', data: admins });
+      res.json({ message: "Admins fetched successfully", data: admins });
     } catch (error) {
       handleErrorResponse(res, error);
     }
   }
 };
 
-
 // ✅ Get single admin
 export const getAdminById = async (req, res) => {
+  const branchId = req.branchId || req.params.branchId;
+  const organizationId = req.user?.organizationId || req.params.organizationId;
+
+  if (!branchId) {
+    return res
+      .status(401)
+      .json({ message: "Branch ID is required for this endpoint" });
+  }
+
+  if (!organizationId) {
+    return res
+      .status(401)
+      .json({ message: "Organization ID is required for this endpoint" });
+  }
+
   try {
-    const id  = req.params.adminId;
+    const id = req.params.adminId;
 
-    if (!isValidObjectId(id)) throw new Error('Invalid Admin ID format');
+    if (!isValidObjectId(id)) throw new Error("Invalid Admin ID format");
 
-    const admin = await Admin.findById(id)
-      .populate('branchId', 'branchName')
-      .populate('userId', 'username role ');
+    const admin = await Admin.findOne({ _id: id, organizationId, branchId })
+      .populate("branchId", "branchName")
+      .populate("userId", "username role ");
 
-    if (!admin) throw new Error('Admin not found');
+    if (!admin) throw new Error("Admin not found");
 
-    res.json({ message: 'Admin fetched successfully', data: admin });
+    res.json({ message: "Admin fetched successfully", data: admin });
   } catch (error) {
-    handleErrorResponse(res, error, 'Failed to fetch admin');
+    handleErrorResponse(res, error, "Failed to fetch admin");
   }
 };
 
 // ✅ Update admin
 export const updateAdmin = async (req, res) => {
+  const branchId = req.branchId || req.params.branchId;
+  const organizationId = req.user?.organizationId || req.params.organizationId;
+  
+  if (!branchId) {
+    return res
+      .status(401)
+      .json({ message: "Branch ID is required for this endpoint" });
+  }
+
+  if (!organizationId) {
+    return res
+      .status(401)
+      .json({ message: "Organization ID is required for this endpoint" });
+  }
+
   const session = await mongoose.startSession();
   session.startTransaction();
 
   let uploadedFiles = [];
   try {
-    const  id  = req.params.adminId;
+    const id = req.params.adminId;
     console.log(`Updating admin with ID: ${id}`);
-    
-    if (!isValidObjectId(id)) throw new Error('Invalid Admin ID format');
+
+    if (!isValidObjectId(id)) throw new Error("Invalid Admin ID format");
 
     const {
-      fullName, fathersName, mobileNumber, dateOfBirth,
-      gender, bloodGroup, address, joinDate, email,
-      username, password,active
+      fullName,
+      fathersName,
+      mobileNumber,
+      dateOfBirth,
+      gender,
+      bloodGroup,
+      address,
+      joinDate,
+      email,
+      username,
+      password,
+      active,
     } = req.body;
 
-    const admin = await Admin.findById(id).session(session);
-    if (!admin) throw new Error('Admin not found');
+    const admin = await Admin.findOne({_id:id, organizationId, branchId}).session(session);
+    if (!admin) throw new Error("Admin not found");
 
     // ✅ Handle photo replacement
     if (req.files?.photo?.[0]) {
       const file = req.files.photo[0];
-      if (file.size > 5 * 1024 * 1024) throw new Error('Photo must be less than 5 MB');
+      if (file.size > 5 * 1024 * 1024)
+        throw new Error("Photo must be less than 5 MB");
 
       const newFileName = `photo_${admin._id}`;
       file.originalname = newFileName;
@@ -219,12 +287,11 @@ export const updateAdmin = async (req, res) => {
       const uploadedFile = await uploadAdminFile(file);
       admin.photo = uploadedFile.webViewLink;
       admin.photoId = uploadedFile.id;
-      console.log(admin.photo );
-      console.log(admin.photoId );
-      
+      console.log(admin.photo);
+      console.log(admin.photoId);
+
       uploadedFiles.push(uploadedFile.id);
     }
-
 
     // ✅ Update only allowed fields
     admin.fullName = fullName ?? admin.fullName;
@@ -250,7 +317,7 @@ export const updateAdmin = async (req, res) => {
     await session.commitTransaction();
     session.endSession();
 
-    res.json({ message: 'Admin updated successfully', data: admin });
+    res.json({ message: "Admin updated successfully", data: admin });
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
@@ -259,21 +326,20 @@ export const updateAdmin = async (req, res) => {
     // for (const fileId of uploadedFiles) {
     //   await deleteAdminFileFromDrive(fileId);
     // }
-    handleErrorResponse(res, error, 'Admin update failed');
+    handleErrorResponse(res, error, "Admin update failed");
   }
 };
-
 
 // ✅ Delete admin
 export const deleteAdmin = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
   try {
-    const id  = req.params.adminId;
-    if (!isValidObjectId(id)) throw new Error('Invalid Admin ID format');
+    const id = req.params.adminId;
+    if (!isValidObjectId(id)) throw new Error("Invalid Admin ID format");
 
     const admin = await Admin.findById(id).session(session);
-    if (!admin) throw new Error('Admin not found');
+    if (!admin) throw new Error("Admin not found");
 
     // Delete photo from Drive
     if (admin.photoId) {
@@ -282,9 +348,13 @@ export const deleteAdmin = async (req, res) => {
 
     // Remove from branch
     if (admin.branchId) {
-      await Branch.findByIdAndUpdate(admin.branchId, {
-        $pull: { branchAdmins: admin._id }
-      }, { session });
+      await Branch.findByIdAndUpdate(
+        admin.branchId,
+        {
+          $pull: { branchAdmins: admin._id },
+        },
+        { session }
+      );
     }
 
     // Delete linked user
@@ -298,11 +368,10 @@ export const deleteAdmin = async (req, res) => {
     await session.commitTransaction();
     session.endSession();
 
-    res.json({ message: 'Admin deleted successfully' });
+    res.json({ message: "Admin deleted successfully" });
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
-    handleErrorResponse(res, error, 'Admin deletion failed');
-    
+    handleErrorResponse(res, error, "Admin deletion failed");
   }
 };

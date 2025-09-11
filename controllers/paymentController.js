@@ -6,7 +6,7 @@ import Learner from "../models/LearnerSchema.models.js";
 
 const handleValidationError = (error, res) => {
   // console.log(error);
-  
+
   const toTitleCase = (str) =>
     str.charAt(0).toUpperCase() + str.slice(1).replace(/([A-Z])/g, " $1");
 
@@ -50,16 +50,35 @@ const handleValidationError = (error, res) => {
   return res.status(500).json({ message: "Internal server error" });
 };
 
-
 // Create Payment
 export const createPayment = async (req, res) => {
+  const branchId = req.branchId || req.params.branchId;
+  const organizationId = req.user?.organizationId || req.params.organizationId;
+  if (!branchId) {
+    return res
+      .status(401)
+      .json({ message: "Branch ID is required for this endpoint" });
+  }
+  if (!organizationId) {
+    return res.status(401).json({ message: "Organization ID is required" });
+  }
   try {
-    const { learnerId, paymentMethod, amount,date } = req.body;
+    const { learnerId, paymentMethod, amount, date } = req.body;
 
-    const newPayment = new Payment({ learnerId, paymentMethod, amount,date ,createdBy: req.user.user_id });
+    const newPayment = new Payment({
+      branchId,
+      organizationId,
+      learnerId,
+      paymentMethod,
+      amount,
+      date,
+      createdBy: req.user.user_id,
+    });
     await newPayment.save();
 
-    res.status(201).json({ message: "Payment recorded successfully", newPayment });
+    res
+      .status(201)
+      .json({ message: "Payment recorded successfully", newPayment });
   } catch (error) {
     handleValidationError(error, res);
   }
@@ -68,10 +87,25 @@ export const createPayment = async (req, res) => {
 // Get All Payments
 
 export const getPayments = async (req, res) => {
+  const branchId = req.branchId || req.params.branchId;
+  const organizationId = req.user?.organizationId || req.params.organizationId;
+  if (!branchId) {
+    return res
+      .status(401)
+      .json({ message: "Branch ID is required for this endpoint" });
+  }
+  if (!organizationId) {
+    return res.status(401).json({ message: "Organization ID is required" });
+  }
   try {
+    //   const toObjIdIfValid = (v) =>
+    //     mongoose.Types.ObjectId.isValid(String(v)) ? new mongoose.Types.ObjectId(String(v)) : v;
+
+    //   const branchId = toObjIdIfValid(branchIdRaw);
+    //   const organizationId = toObjIdIfValid(orgIdRaw);
     const search = req.query.search ? req.query.search.trim() : "";
     const id = req.params.id || null;
-    const date =req.query.date ||null;
+    const date = req.query.date || null;
     let page = parseInt(req.query.page, 10);
     let limit = parseInt(req.query.limit, 10);
     const paginate = !isNaN(page) && !isNaN(limit) && page > 0 && limit > 0;
@@ -81,7 +115,10 @@ export const getPayments = async (req, res) => {
     const todate = req.query.todate || null;
     const paymentMethod = req.query.paymentMethod || null;
 
-    let matchFilter = {};
+    let matchFilter = {
+      organizationId: new mongoose.Types.ObjectId(organizationId),
+      branchId: new mongoose.Types.ObjectId(branchId),
+    };
 
     if (id) {
       matchFilter["learner._id"] = new mongoose.Types.ObjectId(id);
@@ -91,9 +128,6 @@ export const getPayments = async (req, res) => {
       matchFilter.createdBy = new mongoose.Types.ObjectId(req.params.createdBy);
     }
 
-
-
-    
     // ✅ Handle search logic
     const datePattern = /^\d{2}-\d{2}-\d{4}$/;
     let parsedSearchDate = null;
@@ -102,7 +136,6 @@ export const getPayments = async (req, res) => {
       const [day, month, year] = search.split("-");
       parsedSearchDate = new Date(`${year}-${month}-${day}T00:00:00Z`);
       // console.log(parsedSearchDate);
-      
     } else if (!isNaN(Date.parse(search))) {
       parsedSearchDate = new Date(search); // fallback for ISO format
     }
@@ -113,28 +146,45 @@ export const getPayments = async (req, res) => {
         .replace(/([a-z])([A-Z])/g, "$1.*$2")
         .replace(/\s+/g, ".*");
 
-   
-    if (parsedSearchDate) {
-      // 🔒 Strict date-only search
-      matchFilter.date = {
-        $gte: new Date(parsedSearchDate.getFullYear(), parsedSearchDate.getMonth(), parsedSearchDate.getDate(), 0, 0, 0),
-        $lt: new Date(parsedSearchDate.getFullYear(), parsedSearchDate.getMonth(), parsedSearchDate.getDate() + 1, 0, 0, 0)
-      };
-    } else {
-      // 🔍 Fuzzy match on text/numbers
-      matchFilter.$or = [
-        { "learner.fullName": { $regex: trimmedSearch, $options: "i" } },
-        { "learner.fathersName": { $regex: trimmedSearch, $options: "i" } },
-        { "learner.mobileNumber": { $regex: trimmedSearch, $options: "i" } },
-        { "learner.licenseNumber": { $regex: trimmedSearch, $options: "i" } },
-        { "learner.llrNumber": { $regex: trimmedSearch, $options: "i" } },
-        { "learner.admissionNumber": { $regex: `^\\s*${trimmedSearch}\\s*$`, $options: "i" } },
-        { paymentMethod: { $regex: search, $options: "i" } },
-        ...(parseFloat(search) ? [{ amount: parseFloat(search) }] : [])
-      ];
+      if (parsedSearchDate) {
+        // 🔒 Strict date-only search
+        matchFilter.date = {
+          $gte: new Date(
+            parsedSearchDate.getFullYear(),
+            parsedSearchDate.getMonth(),
+            parsedSearchDate.getDate(),
+            0,
+            0,
+            0
+          ),
+          $lt: new Date(
+            parsedSearchDate.getFullYear(),
+            parsedSearchDate.getMonth(),
+            parsedSearchDate.getDate() + 1,
+            0,
+            0,
+            0
+          ),
+        };
+      } else {
+        // 🔍 Fuzzy match on text/numbers
+        matchFilter.$or = [
+          { "learner.fullName": { $regex: trimmedSearch, $options: "i" } },
+          { "learner.fathersName": { $regex: trimmedSearch, $options: "i" } },
+          { "learner.mobileNumber": { $regex: trimmedSearch, $options: "i" } },
+          { "learner.licenseNumber": { $regex: trimmedSearch, $options: "i" } },
+          { "learner.llrNumber": { $regex: trimmedSearch, $options: "i" } },
+          {
+            "learner.admissionNumber": {
+              $regex: `^\\s*${trimmedSearch}\\s*$`,
+              $options: "i",
+            },
+          },
+          { paymentMethod: { $regex: search, $options: "i" } },
+          ...(parseFloat(search) ? [{ amount: parseFloat(search) }] : []),
+        ];
+      }
     }
-  }
-
 
     // ✅ Filter by payment method
     if (paymentMethod) {
@@ -142,11 +192,11 @@ export const getPayments = async (req, res) => {
     }
 
     // ✅ Filter by date range
-   
-    if (fromdate && todate) { 
+
+    if (fromdate && todate) {
       matchFilter.date = {
         $gte: new Date(`${fromdate}T00:00:00.000Z`),
-        $lte: new Date(`${todate}T23:59:59.999Z`)
+        $lte: new Date(`${todate}T23:59:59.999Z`),
       };
     } else if (date) {
       const searchDate = new Date(`${date}T00:00:00.000Z`);
@@ -156,7 +206,6 @@ export const getPayments = async (req, res) => {
         $lt: nextDate,
       };
     }
-    
 
     // ✅ Fields to include if learner ID is not specified
     const learnerFields = id
@@ -173,7 +222,7 @@ export const getPayments = async (req, res) => {
           "learner.photo": 1,
           "learner.licenseNumber": 1,
           "learner.llrNumber": 1,
-          "learner.admissionNumber": 1
+          "learner.admissionNumber": 1,
         };
 
     const pipeline = [
@@ -183,8 +232,8 @@ export const getPayments = async (req, res) => {
           from: "learners",
           localField: "learnerId",
           foreignField: "_id",
-          as: "learner"
-        }
+          as: "learner",
+        },
       },
       { $unwind: "$learner" },
       { $match: matchFilter },
@@ -193,16 +242,16 @@ export const getPayments = async (req, res) => {
           from: "instructors",
           localField: "createdBy",
           foreignField: "_id",
-          as: "createdByDetails"
-        }
+          as: "createdByDetails",
+        },
       },
       {
         $lookup: {
           from: "users",
           localField: "createdByDetails._id",
           foreignField: "refId",
-          as: "created"
-        }
+          as: "created",
+        },
       },
       {
         $project: {
@@ -217,25 +266,29 @@ export const getPayments = async (req, res) => {
             refDetails: {
               _id: { $arrayElemAt: ["$createdByDetails._id", 0] },
               fullName: { $arrayElemAt: ["$createdByDetails.fullName", 0] },
-              mobileNumber: { $arrayElemAt: ["$createdByDetails.mobileNumber", 0] },
-              photo: { $arrayElemAt: ["$createdByDetails.photo", 0] }
-            }
-          }
-        }
-      }
+              mobileNumber: {
+                $arrayElemAt: ["$createdByDetails.mobileNumber", 0],
+              },
+              photo: { $arrayElemAt: ["$createdByDetails.photo", 0] },
+            },
+          },
+        },
+      },
     ];
 
     if (paginate) {
       pipeline.push({
         $facet: {
           metadata: [{ $count: "totalPayments" }],
-          data: [{ $skip: skip }, { $limit: limit }]
-        }
+          data: [{ $skip: skip }, { $limit: limit }],
+        },
       });
 
       const result = await Payment.aggregate(pipeline);
       const payments = result[0].data || [];
-      const totalPayments = result[0].metadata[0] ? result[0].metadata[0].totalPayments : 0;
+      const totalPayments = result[0].metadata[0]
+        ? result[0].metadata[0].totalPayments
+        : 0;
       const totalPages = Math.ceil(totalPayments / limit);
 
       return res.status(200).json({
@@ -244,7 +297,7 @@ export const getPayments = async (req, res) => {
         currentPage: page,
         totalPayments,
         PaymentsCount: payments.length,
-        payments
+        payments,
       });
     } else {
       const payments = await Payment.aggregate(pipeline);
@@ -252,14 +305,13 @@ export const getPayments = async (req, res) => {
         success: true,
         totalPayments: payments.length,
         PaymentsCount: payments.length,
-        payments
+        payments,
       });
     }
-  }catch (error) {
+  } catch (error) {
     handleValidationError(error, res);
   }
 };
-
 
 export const getPaymentById = async (req, res) => {
   try {
@@ -276,7 +328,6 @@ export const getPaymentById = async (req, res) => {
     const paginate = !isNaN(page) && !isNaN(limit) && page > 0 && limit > 0;
     const skip = (page - 1) * limit;
 
-
     // Build query filter
     const filter = { learnerId };
 
@@ -288,10 +339,10 @@ export const getPaymentById = async (req, res) => {
         $lte: new Date(todate),
       };
     }
-    if (fromdate && todate) { 
+    if (fromdate && todate) {
       filter.date = {
         $gte: new Date(`${fromdate}T00:00:00.000Z`),
-        $lte: new Date(`${todate}T23:59:59.999Z`)
+        $lte: new Date(`${todate}T23:59:59.999Z`),
       };
     } else if (req.query.date) {
       const searchDate = new Date(`${date}T00:00:00.000Z`);
@@ -303,8 +354,6 @@ export const getPaymentById = async (req, res) => {
     }
     // Search filter on paymentMethod or amount
 
-    
-    
     // ✅ Handle search logic
     const datePattern = /^\d{2}-\d{2}-\d{4}$/;
     let parsedSearchDate = null;
@@ -313,7 +362,6 @@ export const getPaymentById = async (req, res) => {
       const [day, month, year] = search.split("-");
       parsedSearchDate = new Date(`${year}-${month}-${day}T00:00:00Z`);
       // console.log(parsedSearchDate);
-      
     } else if (!isNaN(Date.parse(search))) {
       parsedSearchDate = new Date(search); // fallback for ISO format
     }
@@ -324,20 +372,33 @@ export const getPaymentById = async (req, res) => {
         .replace(/([a-z])([A-Z])/g, "$1.*$2")
         .replace(/\s+/g, ".*");
 
-   
-    if (parsedSearchDate) {
-      // 🔒 Strict date-only search
-      filter.date = {
-        $gte: new Date(parsedSearchDate.getFullYear(), parsedSearchDate.getMonth(), parsedSearchDate.getDate(), 0, 0, 0),
-        $lt: new Date(parsedSearchDate.getFullYear(), parsedSearchDate.getMonth(), parsedSearchDate.getDate() + 1, 0, 0, 0)
-      };
-    } else {
-      filter.$or = [
-        { paymentMethod: { $regex: search, $options: "i" } },
-        { amount: { $regex: search, $options: "i" } },
-      ];
+      if (parsedSearchDate) {
+        // 🔒 Strict date-only search
+        filter.date = {
+          $gte: new Date(
+            parsedSearchDate.getFullYear(),
+            parsedSearchDate.getMonth(),
+            parsedSearchDate.getDate(),
+            0,
+            0,
+            0
+          ),
+          $lt: new Date(
+            parsedSearchDate.getFullYear(),
+            parsedSearchDate.getMonth(),
+            parsedSearchDate.getDate() + 1,
+            0,
+            0,
+            0
+          ),
+        };
+      } else {
+        filter.$or = [
+          { paymentMethod: { $regex: search, $options: "i" } },
+          { amount: { $regex: search, $options: "i" } },
+        ];
+      }
     }
-  }
     // Get total count before pagination
     const totalPayments = await Payment.countDocuments(filter);
 
@@ -361,7 +422,9 @@ export const getPaymentById = async (req, res) => {
     const payments = await paymentQuery.exec();
 
     if (!payments.length) {
-      return res.status(404).json({ message: "No payments found for this learner" });
+      return res
+        .status(404)
+        .json({ message: "No payments found for this learner" });
     }
 
     const learnerDetails = payments[0].learnerId.toObject();
@@ -397,7 +460,7 @@ export const getPaymentById = async (req, res) => {
     ];
 
     res.status(200).json(response);
-  }catch (error) {
+  } catch (error) {
     handleValidationError(error, res);
   }
 };
@@ -409,7 +472,7 @@ export const deletePayment = async (req, res) => {
     if (!payment) return res.status(404).json({ message: "Payment not found" });
 
     res.status(200).json({ message: "Payment deleted successfully" });
-  }catch (error) {
+  } catch (error) {
     handleValidationError(error, res);
   }
 };

@@ -26,12 +26,12 @@ router.post(
 router.get("/",jwtAuth(ROLE.everyone), userController.getAllInstructors);
 
 // get single data
-router.get("/singleInstructor/:_id",jwtAuth(ROLE.everyone), userController.getInstructorById);
+router.get("/:_id",jwtAuth(ROLE.everyone), userController.getInstructorById);
 
 // UPDATE
-router.put("/updateInstructor/:instructorId",jwtAuth(ROLE.everyone),upload.fields(fileFieldsInstead),userController.updateInstructor);
+router.put("/:instructorId",jwtAuth(ROLE.everyone),upload.fields(fileFieldsInstead),userController.updateInstructor);
 
 // DELETE
-router.delete("/deleteInstructor/:_id",jwtAuth(ROLE.everyone), userController.deleteInstructor);
+router.delete("/:_id",jwtAuth(ROLE.everyone), userController.deleteInstructor);
 
 export default router;

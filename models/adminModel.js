@@ -41,12 +41,8 @@ const adminSchema = new mongoose.Schema({
     required: [true, 'Blood Group is required'],
     trim: true,
   },
- address: {
-    state: { type: String, required: true, trim: true },
-    city: { type: String, required: true, trim: true },
-    pincode: { type: String, required: true, trim: true },
-    street: { type: String, required: true, trim: true },
-  },
+     address: { type: String, required: [true, "address is required."], trim: true },
+
   photo: {
     type: String,
     // required: [true, 'Photo is required'],

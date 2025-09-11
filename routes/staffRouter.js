@@ -4,10 +4,12 @@ import exadminController from "../controllers/exadminController.js";
 import {createStaff,getAllStaff,getStaffById,updateStaff,deleteStaff} from "../controllers/staff.js";
 import jwtAuth from "../middlewares/jwtMiddleware.js";
 import multer from "multer";
+import ROLE from "../util/roleGroups.js";
 
 const router = express.Router();
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
+
 
 // console.log(upload.fields);
 
@@ -16,20 +18,20 @@ const fileFieldsInstead = [
   { name: "photo", maxCount: 1 }, // 🚨 "photo" instead of "profile"
 ];
 
-router.post("/create",upload.fields(fileFieldsInstead),createStaff);
+router.post("/create",jwtAuth(ROLE.adminLevel),upload.fields(fileFieldsInstead),createStaff);
 
 // get all data
-router.get("/", jwtAuth(["Admin"]), getAllStaff);
+router.get("/", jwtAuth(ROLE.adminLevel), getAllStaff);
 
 
 // get single data
-router.get("/:id",jwtAuth(["Admin"]), getStaffById);
-// router.get("/:id",jwtAuth(["Admin"]), getStaffById);
+router.get("/:id",jwtAuth(ROLE.adminLevel), getStaffById);
+// router.get("/:id",jwtAuth(ROLE.adminLevel), getStaffById);
 
 // UPDATE
-router.put("/:id",jwtAuth(["Admin"]),upload.fields(fileFieldsInstead),updateStaff);
+router.put("/:id",jwtAuth(ROLE.adminLevel),upload.fields(fileFieldsInstead),updateStaff);
 
 // DELETE
-router.delete("/:id",jwtAuth(["Admin"]),deleteStaff);
+router.delete("/:id",jwtAuth(ROLE.adminLevel),deleteStaff);
 
 export default router;

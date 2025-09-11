@@ -80,7 +80,7 @@ import { handleErrorResponse } from "../util/errorHandler.js";
 
     const newLearner = new Learner({
       ...req.body,
-      organizationId: req.user.organizationId, // Ensure organizationId is set
+      organizationId: req.user?.organizationId, // Ensure organizationId is set
       admissionNumber,
       folderId: learnerFolderId,
       userId: null,
@@ -133,7 +133,7 @@ if (!req.user?.organizationId) {
   return res.status(401).json({ message: "Organization ID is required for this endpoint" });
 }
 const branchId = req.branchId || req.query.branchId;
-const organizationId = req.user.organizationId || req.query.organizationId;
+const organizationId = req.user?.organizationId || req.query.organizationId;
 
     const { fromdate, todate, search, gender } = req.query;
 
@@ -240,13 +240,25 @@ const getLearnersById = async (req, res) => {
   try {
 console.log("getLearnersById");
 
+
+   if (!req.branchId) {
+  return res.status(401).json({ message: "Branch ID is required for this endpoint" });
+}
+
+if (!req.user?.organizationId) {
+  return res.status(401).json({ message: "Organization ID is required for this endpoint" });
+}
+const branchId = req.branchId || req.query.branchId;
+const organizationId = req.user?.organizationId || req.query.organizationId;
+
+
      const { _id } = req.params;
     // const branchId = req.branchId || req.query.branchId;
      console.log('req.branchId:', req.branchId);
      console.log('req.query.branchId:', req.query.branchId);
 
-    const organizationId = req.user?.organizationId || req.query.organizationId;
-    console.log('user:', req.user)
+    // const organizationId = req.user?.organizationId || req.query.organizationId;
+    // console.log('user:', req.user)
     // console.log({_id,branchId,organizationId});
     
     // ✅ Require all three values
