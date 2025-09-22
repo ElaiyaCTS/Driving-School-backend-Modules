@@ -117,257 +117,50 @@ export const createCourseAssigned = async (req, res) => {
 };
 
 // ✅ Get All Course Assignments with Search, Filters & Pagination (Including Attendance)
-// export const getCourseAssigned = async (req, res) => {
-//   const branchId = req.branchId || req.params.branchId;
-//   const organizationId = req.user?.organizationId || req.params.organizationId;
-//   if (!branchId) {
-//     return res
-//       .status(401)
-//       .json({ message: "Branch ID is required for this endpoint" });
-//   }
-//   if (!organizationId) {
-//     return res.status(401).json({ message: "Organization ID is required" });
-//   }
-
-//   try {
-//     const { statusTwo, statusOne, gender } = req.query;
-//     const search = req.query.search?.trim() || "";
-//     const id = req.params._id || null;
-
-//     let page = parseInt(req.query.page, 10);
-//     let limit = parseInt(req.query.limit, 10);
-//     const isPaginationEnabled =
-//       !isNaN(page) && page > 0 && !isNaN(limit) && limit > 0;
-
-//     const fromdate = req.query.fromdate || null;
-//     const todate = req.query.todate || null;
-//     const skip = isPaginationEnabled ? (page - 1) * limit : 0;
-
-//     const searchDate = moment(search, "YYYY-MM-DD", true).isValid()
-//       ? moment(search, "YYYY-MM-DD").toDate()
-//       : null;
-
-//     let matchFilter = { };
-//     // let matchFilter = { organizationId, branchId };
-
-//     if (id) {
-//       if (!mongoose.Types.ObjectId.isValid(id)) {
-//         return res
-//           .status(400)
-//           .json({ success: false, message: "Invalid ID format" });
-//       }
-//       matchFilter["learner._id"] = new mongoose.Types.ObjectId(id);
-//     }
-
-//     if (search) {
-//       matchFilter.$or = [
-//         { "learner.fullName": { $regex: search, $options: "i" } },
-//         { "learner.fathersName": { $regex: search, $options: "i" } },
-//         { "learner.mobileNumber": { $regex: search, $options: "i" } },
-//         { "learner.licenseNumber": { $regex: search, $options: "i" } },
-//         { "learner.llrNumber": { $regex: search, $options: "i" } },
-//         {
-//           "learner.admissionNumber": {
-//             $regex: `^\\s*${search}\\s*$`,
-//             $options: "i",
-//           },
-//         },
-//         { "course.courseName": { $regex: search, $options: "i" } },
-//         { statusOne: { $regex: search, $options: "i" } },
-//         { statusTwo: { $regex: search, $options: "i" } },
-//         ...(searchDate
-//           ? [
-//               {
-//                 createdAt: {
-//                   $gte: searchDate,
-//                   $lt: new Date(searchDate.getTime() + 86400000),
-//                 },
-//               },
-//               // { updatedAt: { $gte: searchDate, $lt: new Date(searchDate.getTime() + 86400000) } }
-//             ]
-//           : []),
-//       ];
-//     } else {
-//       delete matchFilter.$or;
-//     }
-
-//     if (statusOne) matchFilter.statusOne = statusOne;
-//     if (statusTwo) matchFilter.statusTwo = statusTwo;
-//     if (gender) matchFilter["learner.gender"] = gender;
-
-//     const pipeline = [
-//       { $sort: { createdAt: -1 } },
-//       {
-//         $lookup: {
-//           from: "learners",
-//           localField: "learner",
-//           foreignField: "_id",
-//           as: "learner",
-//         },
-//       },
-//       { $unwind: "$learner" },
-
-//       {
-//         $lookup: {
-//           from: "courses",
-//           localField: "course",
-//           foreignField: "_id",
-//           as: "course",
-//         },
-//       },
-//       { $unwind: "$course" },
-
-//       {
-//         $lookup: {
-//           from: "learnerattendances",
-//           let: { learnerId: "$learner._id", courseId: "$course._id" },
-//           pipeline: [
-//             {
-//               $match: {
-//                 $expr: {
-//                   $and: [
-//                     { $eq: ["$learner", "$$learnerId"] },
-//                     { $eq: ["$courseType", "$$courseId"] },
-//                   ],
-//                 },
-//               },
-//             },
-//             { $count: "attendedDays" },
-//           ],
-//           as: "attendance",
-//         },
-//       },
-
-//       {
-//         $addFields: {
-//           attendedDays: {
-//             $ifNull: [{ $arrayElemAt: ["$attendance.attendedDays", 0] }, 0],
-//           },
-//           totalDays: "$course.duration",
-//         },
-//       },
-
-//       {
-//         $addFields: {
-//           attendanceRatio: {
-//             $cond: {
-//               if: { $gt: ["$totalDays", 0] },
-//               then: {
-//                 $concat: [
-//                   { $toString: "$attendedDays" },
-//                   "/",
-//                   { $toString: "$totalDays" },
-//                 ],
-//               },
-//               else: "0/0",
-//             },
-//           },
-//         },
-//       },
-
-//       { $match: matchFilter },
-
-//       {
-//         $project: {
-//           learner: id
-//             ? "$$REMOVE"
-//             : {
-//                 _id: 1,
-//                 fullName: 1,
-//                 fathersName: 1,
-//                 photo: 1,
-//                 mobileNumber: 1,
-//                 gender: 1,
-//                 admissionNumber: 1,
-//                 licenseNumber: 1,
-//                 llrNumber: 1,
-//               },
-//           course: { _id: 1, courseName: 1, duration: 1 },
-//           statusOne: 1,
-//           statusTwo: 1,
-//           createdAt: 1,
-//           updatedAt: 1,
-//           attendedDays: 1,
-//           totalDays: 1,
-//           attendanceRatio: 1,
-//         },
-//       },
-//     ];
-
-//     if (isPaginationEnabled) {
-//       pipeline.push({
-//         $facet: {
-//           metadata: [{ $count: "totalAssignments" }],
-//           data: [{ $skip: skip }, { $limit: limit }],
-//         },
-//       });
-//     }
-
-//     const result = await CourseAssigned.aggregate(pipeline);
-//     const totalAssignments = result[0]?.metadata?.[0]?.totalAssignments || 0;
-//     const assignments = isPaginationEnabled ? result[0].data : result;
-//     const totalPages = isPaginationEnabled
-//       ? Math.ceil(totalAssignments / limit)
-//       : 1;
-//     const assignmentsCount = assignments.length;
-
-//     res.status(200).json({
-//       success: true,
-//       totalPages,
-//       currentPage: isPaginationEnabled ? page : 1,
-//       totalAssignments,
-//       assignmentsCount,
-//       assignments,
-//     });
-//   } catch (error) {
-//     handleValidationError(error, res);
-//   }
-// };
 export const getCourseAssigned = async (req, res) => {
-  const branchIdRaw = req.branchId || req.params.branchId;
-  const orgIdRaw = req.user?.organizationId || req.params.organizationId;
-
-  if (!branchIdRaw) {
-    return res.status(401).json({ message: "Branch ID is required for this endpoint" });
+  const branchId = req.branchId || req.params.branchId;
+  const organizationId = req.user?.organizationId || req.params.organizationId;
+  if (!branchId) {
+    return res
+      .status(401)
+      .json({ message: "Branch ID is required for this endpoint" });
   }
-  if (!orgIdRaw) {
+  if (!organizationId) {
     return res.status(401).json({ message: "Organization ID is required" });
   }
-
-  // helper to turn valid id strings into ObjectId, otherwise keep as-is
-  const toObjIdIfValid = (v) =>
-    mongoose.Types.ObjectId.isValid(String(v)) ? new mongoose.Types.ObjectId(String(v)) : v;
-
-  const branchId = toObjIdIfValid(branchIdRaw);
-  const organizationId = toObjIdIfValid(orgIdRaw);
 
   try {
     const { statusTwo, statusOne, gender } = req.query;
     const search = req.query.search?.trim() || "";
-    const idParam = req.params.id || req.params._id || null;
+    const id = req.params._id || null;
 
     let page = parseInt(req.query.page, 10);
     let limit = parseInt(req.query.limit, 10);
-    const isPaginationEnabled = !isNaN(page) && page > 0 && !isNaN(limit) && limit > 0;
+    const isPaginationEnabled =
+      !isNaN(page) && page > 0 && !isNaN(limit) && limit > 0;
+
+    const fromdate = req.query.fromdate || null;
+    const todate = req.query.todate || null;
     const skip = isPaginationEnabled ? (page - 1) * limit : 0;
 
     const searchDate = moment(search, "YYYY-MM-DD", true).isValid()
       ? moment(search, "YYYY-MM-DD").toDate()
       : null;
 
-    // --- BUILD BASE MATCH (MANDATORY) ---
-    const matchFilter = { organizationId, branchId };
+    let matchFilter = { 
+        organizationId: new mongoose.Types.ObjectId(organizationId),
+      branchId: new mongoose.Types.ObjectId(branchId),
+     };
+    // let matchFilter = { organizationId, branchId };
 
-    if (idParam) {
-      if (!mongoose.Types.ObjectId.isValid(idParam)) {
-        return res.status(400).json({ success: false, message: "Invalid ID format" });
+    if (id) {
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Invalid ID format" });
       }
-      matchFilter["learner._id"] = new mongoose.Types.ObjectId(idParam);
+      matchFilter["learner._id"] = new mongoose.Types.ObjectId(id);
     }
-
-    if (statusOne) matchFilter.statusOne = statusOne;
-    if (statusTwo) matchFilter.statusTwo = statusTwo;
-    if (gender) matchFilter["learner.gender"] = gender;
 
     if (search) {
       matchFilter.$or = [
@@ -393,16 +186,20 @@ export const getCourseAssigned = async (req, res) => {
                   $lt: new Date(searchDate.getTime() + 86400000),
                 },
               },
+              // { updatedAt: { $gte: searchDate, $lt: new Date(searchDate.getTime() + 86400000) } }
             ]
           : []),
       ];
+    } else {
+      delete matchFilter.$or;
     }
 
-    // --- PIPELINE: ensure $match on org/branch happens FIRST ---
-    const pipeline = [
-      { $match: matchFilter },           // <-- mandatory pre-filter
-      { $sort: { createdAt: -1 } },
+    if (statusOne) matchFilter.statusOne = statusOne;
+    if (statusTwo) matchFilter.statusTwo = statusTwo;
+    if (gender) matchFilter["learner.gender"] = gender;
 
+    const pipeline = [
+      { $sort: { createdAt: -1 } },
       {
         $lookup: {
           from: "learners",
@@ -446,7 +243,9 @@ export const getCourseAssigned = async (req, res) => {
 
       {
         $addFields: {
-          attendedDays: { $ifNull: [{ $arrayElemAt: ["$attendance.attendedDays", 0] }, 0] },
+          attendedDays: {
+            $ifNull: [{ $arrayElemAt: ["$attendance.attendedDays", 0] }, 0],
+          },
           totalDays: "$course.duration",
         },
       },
@@ -454,18 +253,26 @@ export const getCourseAssigned = async (req, res) => {
       {
         $addFields: {
           attendanceRatio: {
-            $cond: [
-              { $gt: ["$totalDays", 0] },
-              { $concat: [{ $toString: "$attendedDays" }, "/", { $toString: "$totalDays" }] },
-              "0/0",
-            ],
+            $cond: {
+              if: { $gt: ["$totalDays", 0] },
+              then: {
+                $concat: [
+                  { $toString: "$attendedDays" },
+                  "/",
+                  { $toString: "$totalDays" },
+                ],
+              },
+              else: "0/0",
+            },
           },
         },
       },
 
+      { $match: matchFilter },
+
       {
         $project: {
-          learner: idParam
+          learner: id
             ? "$$REMOVE"
             : {
                 _id: 1,
@@ -499,28 +306,224 @@ export const getCourseAssigned = async (req, res) => {
       });
     }
 
-    // --- RUN AGGREGATION ---
-    const aggResult = await CourseAssigned.aggregate(pipeline).exec();
-
-    const totalAssignments = isPaginationEnabled
-      ? aggResult[0]?.metadata?.[0]?.totalAssignments || 0
-      : aggResult.length;
-
-    const assignments = isPaginationEnabled ? aggResult[0].data : aggResult;
-    const totalPages = isPaginationEnabled ? Math.ceil(totalAssignments / limit) : 1;
+    const result = await CourseAssigned.aggregate(pipeline);
+    const totalAssignments = result[0]?.metadata?.[0]?.totalAssignments || 0;
+    const assignments = isPaginationEnabled ? result[0].data : result;
+    const totalPages = isPaginationEnabled
+      ? Math.ceil(totalAssignments / limit)
+      : 1;
+    const assignmentsCount = assignments.length;
 
     res.status(200).json({
       success: true,
       totalPages,
       currentPage: isPaginationEnabled ? page : 1,
       totalAssignments,
-      assignmentsCount: assignments.length,
+      assignmentsCount,
       assignments,
     });
   } catch (error) {
     handleValidationError(error, res);
   }
 };
+// export const getCourseAssigned = async (req, res) => {
+//   const branchIdRaw = req.branchId || req.params.branchId;
+//   const orgIdRaw = req.user?.organizationId || req.params.organizationId;
+
+//   if (!branchIdRaw) {
+//     return res.status(401).json({ message: "Branch ID is required for this endpoint" });
+//   }
+//   if (!orgIdRaw) {
+//     return res.status(401).json({ message: "Organization ID is required" });
+//   }
+
+//   // helper to turn valid id strings into ObjectId, otherwise keep as-is
+//   const toObjIdIfValid = (v) =>
+//     mongoose.Types.ObjectId.isValid(String(v)) ? new mongoose.Types.ObjectId(String(v)) : v;
+
+//   const branchId = toObjIdIfValid(branchIdRaw);
+//   const organizationId = toObjIdIfValid(orgIdRaw);
+
+//   try {
+//     const { statusTwo, statusOne, gender } = req.query;
+//     const search = req.query.search?.trim() || "";
+//     const idParam = req.params.id || req.params._id || null;
+
+//     let page = parseInt(req.query.page, 10);
+//     let limit = parseInt(req.query.limit, 10);
+//     const isPaginationEnabled = !isNaN(page) && page > 0 && !isNaN(limit) && limit > 0;
+//     const skip = isPaginationEnabled ? (page - 1) * limit : 0;
+
+//     const searchDate = moment(search, "YYYY-MM-DD", true).isValid()
+//       ? moment(search, "YYYY-MM-DD").toDate()
+//       : null;
+
+//     // --- BUILD BASE MATCH (MANDATORY) ---
+//     const matchFilter = { organizationId, branchId };
+
+//     if (idParam) {
+//       if (!mongoose.Types.ObjectId.isValid(idParam)) {
+//         return res.status(400).json({ success: false, message: "Invalid ID format" });
+//       }
+//       matchFilter["learner._id"] = new mongoose.Types.ObjectId(idParam);
+//     }
+
+//     if (statusOne) matchFilter.statusOne = statusOne;
+//     if (statusTwo) matchFilter.statusTwo = statusTwo;
+//     if (gender) matchFilter["learner.gender"] = gender;
+
+//     if (search) {
+//       matchFilter.$or = [
+//         { "learner.fullName": { $regex: search, $options: "i" } },
+//         { "learner.fathersName": { $regex: search, $options: "i" } },
+//         { "learner.mobileNumber": { $regex: search, $options: "i" } },
+//         { "learner.licenseNumber": { $regex: search, $options: "i" } },
+//         { "learner.llrNumber": { $regex: search, $options: "i" } },
+//         {
+//           "learner.admissionNumber": {
+//             $regex: `^\\s*${search}\\s*$`,
+//             $options: "i",
+//           },
+//         },
+//         { "course.courseName": { $regex: search, $options: "i" } },
+//         { statusOne: { $regex: search, $options: "i" } },
+//         { statusTwo: { $regex: search, $options: "i" } },
+//         ...(searchDate
+//           ? [
+//               {
+//                 createdAt: {
+//                   $gte: searchDate,
+//                   $lt: new Date(searchDate.getTime() + 86400000),
+//                 },
+//               },
+//             ]
+//           : []),
+//       ];
+//     }
+
+//     // --- PIPELINE: ensure $match on org/branch happens FIRST ---
+//     const pipeline = [
+//       { $match: matchFilter },           // <-- mandatory pre-filter
+//       { $sort: { createdAt: -1 } },
+
+//       {
+//         $lookup: {
+//           from: "learners",
+//           localField: "learner",
+//           foreignField: "_id",
+//           as: "learner",
+//         },
+//       },
+//       { $unwind: "$learner" },
+
+//       {
+//         $lookup: {
+//           from: "courses",
+//           localField: "course",
+//           foreignField: "_id",
+//           as: "course",
+//         },
+//       },
+//       { $unwind: "$course" },
+
+//       {
+//         $lookup: {
+//           from: "learnerattendances",
+//           let: { learnerId: "$learner._id", courseId: "$course._id" },
+//           pipeline: [
+//             {
+//               $match: {
+//                 $expr: {
+//                   $and: [
+//                     { $eq: ["$learner", "$$learnerId"] },
+//                     { $eq: ["$courseType", "$$courseId"] },
+//                   ],
+//                 },
+//               },
+//             },
+//             { $count: "attendedDays" },
+//           ],
+//           as: "attendance",
+//         },
+//       },
+
+//       {
+//         $addFields: {
+//           attendedDays: { $ifNull: [{ $arrayElemAt: ["$attendance.attendedDays", 0] }, 0] },
+//           totalDays: "$course.duration",
+//         },
+//       },
+
+//       {
+//         $addFields: {
+//           attendanceRatio: {
+//             $cond: [
+//               { $gt: ["$totalDays", 0] },
+//               { $concat: [{ $toString: "$attendedDays" }, "/", { $toString: "$totalDays" }] },
+//               "0/0",
+//             ],
+//           },
+//         },
+//       },
+
+//       {
+//         $project: {
+//           learner: idParam
+//             ? "$$REMOVE"
+//             : {
+//                 _id: 1,
+//                 fullName: 1,
+//                 fathersName: 1,
+//                 photo: 1,
+//                 mobileNumber: 1,
+//                 gender: 1,
+//                 admissionNumber: 1,
+//                 licenseNumber: 1,
+//                 llrNumber: 1,
+//               },
+//           course: { _id: 1, courseName: 1, duration: 1 },
+//           statusOne: 1,
+//           statusTwo: 1,
+//           createdAt: 1,
+//           updatedAt: 1,
+//           attendedDays: 1,
+//           totalDays: 1,
+//           attendanceRatio: 1,
+//         },
+//       },
+//     ];
+
+//     if (isPaginationEnabled) {
+//       pipeline.push({
+//         $facet: {
+//           metadata: [{ $count: "totalAssignments" }],
+//           data: [{ $skip: skip }, { $limit: limit }],
+//         },
+//       });
+//     }
+
+//     // --- RUN AGGREGATION ---
+//     const aggResult = await CourseAssigned.aggregate(pipeline).exec();
+
+//     const totalAssignments = isPaginationEnabled
+//       ? aggResult[0]?.metadata?.[0]?.totalAssignments || 0
+//       : aggResult.length;
+
+//     const assignments = isPaginationEnabled ? aggResult[0].data : aggResult;
+//     const totalPages = isPaginationEnabled ? Math.ceil(totalAssignments / limit) : 1;
+
+//     res.status(200).json({
+//       success: true,
+//       totalPages,
+//       currentPage: isPaginationEnabled ? page : 1,
+//       totalAssignments,
+//       assignmentsCount: assignments.length,
+//       assignments,
+//     });
+//   } catch (error) {
+//     handleValidationError(error, res);
+//   }
+// };
 
 
 

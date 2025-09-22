@@ -1,14 +1,20 @@
-import StaffAttendance from '../models/staffAttendance.models.js';
-import Staff from '../models/StaffSchema.models.js';
-import {findLearnerFolderInDrive, uploadAndOverwriteFile, createDriveFolder,uploadInstructorFile,deleteFolderFromDrive ,deleteInstructorFileFromDrive} from "../util/googleDriveUpload.js";
-import mongoose from 'mongoose';
-
+import StaffAttendance from "../models/staffAttendance.models.js";
+import Staff from "../models/StaffSchema.models.js";
+import {
+  findLearnerFolderInDrive,
+  uploadAndOverwriteFile,
+  createDriveFolder,
+  uploadInstructorFile,
+  deleteFolderFromDrive,
+  deleteInstructorFileFromDrive,
+} from "../util/googleDriveUpload.js";
+import mongoose from "mongoose";
 
 // 🔧 Reusable Validation & Cast Error Handler
 
 const handleValidationError = (error, res) => {
   // console.log(error);
-  
+
   const toTitleCase = (str) =>
     str.charAt(0).toUpperCase() + str.slice(1).replace(/([A-Z])/g, " $1");
 
@@ -52,25 +58,40 @@ const handleValidationError = (error, res) => {
   return res.status(500).json({ message: "Internal server error" });
 };
 
-
 // Create
 
 export const createStaffAttendance = async (req, res) => {
+    const branchId = req.branchId || req.params.branchId;
+  const organizationId = req.user?.organizationId || req.params.organizationId;
+  if (!branchId) {
+    return res
+      .status(401)
+      .json({ message: "Branch ID is required for this endpoint" });
+  }
+  if (!organizationId) {
+    return res.status(401).json({ message: "Organization ID is required" });
+  }
   try {
-    const { staff, date, status,checkIn,checkOut } = req.body;
-   const createdBy= req.user.user_id
+
+    const { staff, date, status, checkIn, checkOut } = req.body;
+    const createdBy = req.user.user_id;
 
     const newAttendance = new StaffAttendance({
       staff,
       date,
       checkIn,
-      checkOut ,
+      checkOut,
       status,
+      organizationId,
+      branchId,
       createdBy,
     });
 
     await newAttendance.save();
-    res.status(201).json({ message: 'staff attendance recorded successfully', data: newAttendance });
+    res.status(201).json({
+      message: "staff attendance recorded successfully",
+      data: newAttendance,
+    });
   } catch (error) {
     handleValidationError(error, res);
   }
@@ -78,13 +99,23 @@ export const createStaffAttendance = async (req, res) => {
 
 // 📌 READ ALL or INDIVIDUAL Staff Attendances
 export const getAllStaffAttendances = async (req, res) => {
+    const branchId = req.branchId || req.params.branchId;
+  const organizationId = req.user?.organizationId || req.params.organizationId;
+  if (!branchId) {
+    return res
+      .status(401)
+      .json({ message: "Branch ID is required for this endpoint" });
+  }
+  if (!organizationId) {
+    return res.status(401).json({ message: "Organization ID is required" });
+  }
   try {
     const search = req.query.search ? req.query.search.trim() : "";
     const fromdate = req.query.fromdate || null;
     const todate = req.query.todate || null;
     const status = req.query.status || null;
     const staffId = req.params.id || null;
-    const date =req.query.date ||null;
+    const date = req.query.date || null;
 
     let page = parseInt(req.query.page, 10);
     page = isNaN(page) || page < 1 ? 1 : page;
@@ -94,7 +125,10 @@ export const getAllStaffAttendances = async (req, res) => {
 
     const skip = (page - 1) * limit;
 
-    let matchFilter = {};
+    let matchFilter = {
+        organizationId: new mongoose.Types.ObjectId(organizationId),
+      branchId: new mongoose.Types.ObjectId(branchId),
+    };
 
     if (staffId) {
       matchFilter.staff = new mongoose.Types.ObjectId(staffId);
@@ -104,37 +138,36 @@ export const getAllStaffAttendances = async (req, res) => {
       matchFilter.status = { $regex: new RegExp(`^${status}$`, "i") };
     }
 
- 
-   // Try parsing search as date
-   const isValidDate = (str) => {
-    const parts = str.split("-");
-    if (parts.length !== 3) return null;
-    const [dd, mm, yyyy] = parts.map(Number);
-    const date = new Date(yyyy, mm - 1, dd);
-    return isNaN(date.getTime()) ? null : date;
-  };
+    // Try parsing search as date
+    const isValidDate = (str) => {
+      const parts = str.split("-");
+      if (parts.length !== 3) return null;
+      const [dd, mm, yyyy] = parts.map(Number);
+      const date = new Date(yyyy, mm - 1, dd);
+      return isNaN(date.getTime()) ? null : date;
+    };
 
-  const searchDate = isValidDate(search);
+    const searchDate = isValidDate(search);
 
-  if (fromdate && todate) {
-    matchFilter.date = {
-      $gte: new Date(`${fromdate}T00:00:00.000Z`),
-      $lte: new Date(`${todate}T23:59:59.999Z`)
-    };
-  } else if (date) {
-    const parsedDate = new Date(`${date}T00:00:00.000Z`);
-    const nextDate = new Date(parsedDate.getTime() + 86400000); // +1 day
-    matchFilter.date = {
-      $gte: parsedDate,
-      $lt: nextDate,
-    };
-  } else if (searchDate) {
-    // If search input looks like a date (DD-MM-YYYY), filter by that date
-    matchFilter.date = {
-      $gte: searchDate,
-      $lt: new Date(searchDate.getTime() + 86400000),
-    };
-  }
+    if (fromdate && todate) {
+      matchFilter.date = {
+        $gte: new Date(`${fromdate}T00:00:00.000Z`),
+        $lte: new Date(`${todate}T23:59:59.999Z`),
+      };
+    } else if (date) {
+      const parsedDate = new Date(`${date}T00:00:00.000Z`);
+      const nextDate = new Date(parsedDate.getTime() + 86400000); // +1 day
+      matchFilter.date = {
+        $gte: parsedDate,
+        $lt: nextDate,
+      };
+    } else if (searchDate) {
+      // If search input looks like a date (DD-MM-YYYY), filter by that date
+      matchFilter.date = {
+        $gte: searchDate,
+        $lt: new Date(searchDate.getTime() + 86400000),
+      };
+    }
 
     // 🔀 Handle /staff-attendance/:id with paginated records
     if (staffId) {
@@ -307,18 +340,29 @@ export const getAllStaffAttendances = async (req, res) => {
       dataCount: attendances.length,
       data: attendances,
     });
-  }catch (error) {
+  } catch (error) {
     handleValidationError(error, res);
   }
 };
 
-
 // Read One
 export const getStaffAttendanceById = async (req, res) => {
+    const branchId = req.branchId || req.params.branchId;
+  const organizationId = req.user?.organizationId || req.params.organizationId;
+  if (!branchId) {
+    return res
+      .status(401)
+      .json({ message: "Branch ID is required for this endpoint" });
+  }
+  if (!organizationId) {
+    return res.status(401).json({ message: "Organization ID is required" });
+  }
   try {
-    const attendance = await StaffAttendance.findById(req.params.id);
+        const filter={_id:req.params.id,branchId,organizationId};
+
+    const attendance = await StaffAttendance.findone(filter);
     if (!attendance) {
-      return res.status(404).json({ error: 'Attendance not found' });
+      return res.status(404).json({ error: "Attendance not found" });
     }
     res.status(200).json(attendance);
   } catch (error) {
@@ -328,14 +372,25 @@ export const getStaffAttendanceById = async (req, res) => {
 
 // Update
 export const updateStaffAttendance = async (req, res) => {
+    const branchId = req.branchId || req.params.branchId;
+  const organizationId = req.user?.organizationId || req.params.organizationId;
+  if (!branchId) {
+    return res
+      .status(401)
+      .json({ message: "Branch ID is required for this endpoint" });
+  }
+  if (!organizationId) {
+    return res.status(401).json({ message: "Organization ID is required" });
+  }
   try {
-    const updatedAttendance = await StaffAttendance.findByIdAndUpdate(
-      req.params.id,
+     const filter={_id:req.params.id,branchId,organizationId};
+    const updatedAttendance = await StaffAttendance.findOneAndUpdate(
+     filter,
       req.body,
       { new: true, runValidators: true }
     );
     if (!updatedAttendance) {
-      return res.status(404).json({ error: 'Attendance not found' });
+      return res.status(404).json({ error: "Attendance not found" });
     }
     res.status(200).json(updatedAttendance);
   } catch (error) {
@@ -345,12 +400,23 @@ export const updateStaffAttendance = async (req, res) => {
 
 // Delete
 export const deleteStaffAttendance = async (req, res) => {
+    const branchId = req.branchId || req.params.branchId;
+  const organizationId = req.user?.organizationId || req.params.organizationId;
+  if (!branchId) {
+    return res
+      .status(401)
+      .json({ message: "Branch ID is required for this endpoint" });
+  }
+  if (!organizationId) {
+    return res.status(401).json({ message: "Organization ID is required" });
+  }
   try {
-    const deleted = await StaffAttendance.findByIdAndDelete(req.params.id);
+     const filter={_id:req.params.id,branchId,organizationId};
+    const deleted = await StaffAttendance.findOneAndDelete(filter);
     if (!deleted) {
-      return res.status(404).json({ error: 'Attendance not found' });
+      return res.status(404).json({ error: "Attendance not found" });
     }
-    res.status(200).json({ message: 'Attendance deleted successfully' });
+    res.status(200).json({ message: "Attendance deleted successfully" });
   } catch (error) {
     handleValidationError(error, res);
   }

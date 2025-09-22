@@ -65,14 +65,14 @@ const handleValidationError = (error, res) => {
 };
 // 📌 CREATE Course
 export const createCourse = async (req, res) => {
-  const branchId = req.branchId || req.params.branchId;
+//   const branchId = req.branchId || req.params.branchId;
   const organizationId = req.user?.organizationId || req.params.organizationId;
 
-  if (!branchId) {
-    return res
-      .status(401)
-      .json({ message: "Branch ID is required for this endpoint" });
-  }
+//   if (!branchId) {
+//     return res
+//       .status(401)
+//       .json({ message: "Branch ID is required for this endpoint" });
+//   }
 
   if (!organizationId) {
     return res
@@ -81,7 +81,7 @@ export const createCourse = async (req, res) => {
   }
 
   try {
-    const data = { ...req.body, branchId, organizationId };
+    const data = { ...req.body, organizationId };
     const course = new Course(data);
     await course.save();
     res.status(201).json(course);
@@ -92,14 +92,14 @@ export const createCourse = async (req, res) => {
 
 // 📌 GET ALL COURSES (With Pagination & Search)
 export const getCourses = async (req, res) => {
-  const branchId = req.branchId || req.params.branchId;
+//   const branchId = req.branchId || req.params.branchId;
   const organizationId = req.user?.organizationId || req.params.organizationId;
 
-  if (!branchId) {
-    return res
-      .status(401)
-      .json({ message: "Branch ID is required for this endpoint" });
-  }
+//   if (!branchId) {
+//     return res
+//       .status(401)
+//       .json({ message: "Branch ID is required for this endpoint" });
+//   }
 
   if (!organizationId) {
     return res
@@ -114,7 +114,7 @@ export const getCourses = async (req, res) => {
     // If page & limit are missing, fetch all courses
     const paginate = !isNaN(page) && !isNaN(limit) && page > 0 && limit > 0;
 
-    let searchFilter = { branchId, organizationId };
+    let searchFilter = { organizationId };
 
     if (search) {
       const trimmedSearch = search.trim();
@@ -163,14 +163,14 @@ export const getCourses = async (req, res) => {
 
 // Get Course by _id
 export const getCourseById = async (req, res) => {
-  const branchId = req.branchId || req.params.branchId;
+//   const branchId = req.branchId || req.params.branchId;
   const organizationId = req.user?.organizationId || req.params.organizationId;
   const id = req.params._id;
-  if (!branchId) {
-    return res
-      .status(401)
-      .json({ message: "Branch ID is required for this endpoint" });
-  }
+//   if (!branchId) {
+//     return res
+//       .status(401)
+//       .json({ message: "Branch ID is required for this endpoint" });
+//   }
 
   if (!organizationId) {
     return res
@@ -179,7 +179,7 @@ export const getCourseById = async (req, res) => {
   }
 
   try {
-    const course = await Course.findOne({ _id:id, organizationId, branchId });
+    const course = await Course.findOne({ _id:id, organizationId });
     if (!course) return res.status(404).json({ message: "Course not found" });
     res.status(200).json(course);
   } catch (error) {
@@ -189,14 +189,14 @@ export const getCourseById = async (req, res) => {
 
 // Update Course by _id
 export const updateCourse = async (req, res) => {
-  const branchId = req.branchId || req.params.branchId;
+//   const branchId = req.branchId || req.params.branchId;
   const organizationId = req.user?.organizationId || req.params.organizationId;
   const id = req.params._id;
-  if (!branchId) {
-    return res
-      .status(401)
-      .json({ message: "Branch ID is required for this endpoint" });
-  }
+//   if (!branchId) {
+//     return res
+//       .status(401)
+//       .json({ message: "Branch ID is required for this endpoint" });
+//   }
 
   if (!organizationId) {
     return res
@@ -205,7 +205,7 @@ export const updateCourse = async (req, res) => {
   }
   try {
     const course = await Course.findOneAndUpdate(
-      { _id: id, organizationId, branchId }, // filter
+      { _id: id, organizationId }, // filter
       req.body, // update
       { new: true, runValidators: true } // options
     );
@@ -220,20 +220,20 @@ export const updateCourse = async (req, res) => {
 // Delete Course by _id
 export const deleteCourse = async (req, res) => {
   const  id  = req.params._id;
-  const branchId = req.branchId || req.params.branchId;
+//   const branchId = req.branchId || req.params.branchId;
   const organizationId = req.user?.organizationId || req.params.organizationId;
-  if (!branchId) {
-    return res
-      .status(401)
-      .json({ message: "Branch ID is required for this endpoint" });
-  }
+//   if (!branchId) {
+//     return res
+//       .status(401)
+//       .json({ message: "Branch ID is required for this endpoint" });
+//   }
   if (!organizationId) {
     return res.status(401).json({ message: "Organization ID is required" });
   }
 
   try {
    const filter = { _id: id, organizationId };
-    if (branchId) filter.branchId = branchId;
+    // if (branchId) filter.branchId = branchId;
     const deletedCourse = await Course.findOneAndDelete(filter);
     if (!deletedCourse) return res.status(404).json({ message: "Course not found" });
     res.status(200).json({ message: "Course deleted successfully" });

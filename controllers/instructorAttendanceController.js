@@ -1,12 +1,12 @@
-import InstructorAttendance from '../models/InstructorAttendance.models.js';
-import Instructors from '../models/InstructorSchema.models.js';
-import mongoose from 'mongoose';
+import InstructorAttendance from "../models/InstructorAttendance.models.js";
+import Instructors from "../models/InstructorSchema.models.js";
+import mongoose from "mongoose";
 
 // 🔧 Reusable Validation & Cast Error Handler
 
 const handleValidationError = (error, res) => {
   // console.log(error);
-  
+
   const toTitleCase = (str) =>
     str.charAt(0).toUpperCase() + str.slice(1).replace(/([A-Z])/g, " $1");
 
@@ -50,22 +50,38 @@ const handleValidationError = (error, res) => {
   return res.status(500).json({ message: "Internal server error" });
 };
 
-
 // ✅ Create Instructor Attendance
 export const createInstructorAttendance = async (req, res) => {
+  const branchId = req.branchId || req.params.branchId;
+  const organizationId = req.user?.organizationId || req.params.organizationId;
+  if (!branchId) {
+    return res
+      .status(401)
+      .json({ message: "Branch ID is required for this endpoint" });
+  }
+  if (!organizationId) {
+    return res.status(401).json({ message: "Organization ID is required" });
+  }
   try {
-    const { instructor, date, status,checkIn,checkOut } = req.body;
+    const { instructor, date, status, checkIn, checkOut } = req.body;
 
     const newAttendance = new InstructorAttendance({
       instructor,
       date,
       checkIn,
-      checkOut ,
+      checkOut,
       status,
+      organizationId,
+      branchId,
     });
 
     await newAttendance.save();
-    res.status(201).json({ message: 'Instructor attendance recorded successfully', data: newAttendance });
+    res
+      .status(201)
+      .json({
+        message: "Instructor attendance recorded successfully",
+        data: newAttendance,
+      });
   } catch (error) {
     handleValidationError(error, res);
   }
@@ -131,7 +147,6 @@ export const createInstructorAttendance = async (req, res) => {
 //   }
 
 //  matchFilter.status= { status: { $regex: search, $options: "i" } }
-
 
 //     // const searchDate = !isNaN(Date.parse(search)) ? new Date(search) : null;
 
@@ -271,6 +286,16 @@ export const createInstructorAttendance = async (req, res) => {
 //   }
 // };
 export const getAllInstructorAttendances = async (req, res) => {
+  const branchId = req.branchId || req.params.branchId;
+  const organizationId = req.user?.organizationId || req.params.organizationId;
+  if (!branchId) {
+    return res
+      .status(401)
+      .json({ message: "Branch ID is required for this endpoint" });
+  }
+  if (!organizationId) {
+    return res.status(401).json({ message: "Organization ID is required" });
+  }
   try {
     const search = req.query.search?.trim() || "";
     const fromdate = req.query.fromdate || null;
@@ -287,7 +312,10 @@ export const getAllInstructorAttendances = async (req, res) => {
 
     const skip = (page - 1) * limit;
 
-    let matchFilter = {};
+    let matchFilter = {
+      organizationId: new mongoose.Types.ObjectId(organizationId),
+      branchId: new mongoose.Types.ObjectId(branchId),
+    };
 
     // ✅ Validate staffId
     if (staffId) {
@@ -474,16 +502,26 @@ export const getAllInstructorAttendances = async (req, res) => {
 // ✅ Get Instructor Attendance by ID
 
 export const getInstructorAttendanceById = async (req, res) => {
+  const branchId = req.branchId || req.params.branchId;
+  const organizationId = req.user?.organizationId || req.params.organizationId;
+  if (!branchId) {
+    return res
+      .status(401)
+      .json({ message: "Branch ID is required for this endpoint" });
+  }
+  if (!organizationId) {
+    return res.status(401).json({ message: "Organization ID is required" });
+  }
   try {
     const { date } = req.query;
     const instructorId = req.params.id;
 
     // Validate instructor ID
     if (!mongoose.Types.ObjectId.isValid(instructorId)) {
-      return res.status(400).json({ message: 'Invalid instructor ID' });
+      return res.status(400).json({ message: "Invalid instructor ID" });
     }
 
-    let filter = { instructor: instructorId };
+    let filter = { instructor: instructorId, branchId, organizationId };
 
     if (date) {
       const queryDate = new Date(date);
@@ -495,11 +533,15 @@ export const getInstructorAttendanceById = async (req, res) => {
       filter.date = { $gte: queryDate, $lt: nextDate };
     }
 
-    const attendance = await InstructorAttendance.findOne(filter)
-      .populate('instructor', 'fullName email mobileNumber');
+    const attendance = await InstructorAttendance.findOne(filter).populate(
+      "instructor",
+      "fullName email mobileNumber"
+    );
 
     if (!attendance) {
-      return res.status(404).json({ message: 'Instructor attendance not found' });
+      return res
+        .status(404)
+        .json({ message: "Instructor attendance not found" });
     }
 
     res.status(200).json(attendance);
@@ -510,9 +552,18 @@ export const getInstructorAttendanceById = async (req, res) => {
 
 // ✅ Update Instructor Attendance
 export const updateInstructorAttendance = async (req, res) => {
+  const branchId = req.branchId || req.params.branchId;
+  const organizationId = req.user?.organizationId || req.params.organizationId;
+  if (!branchId) {
+    return res
+      .status(401)
+      .json({ message: "Branch ID is required for this endpoint" });
+  }
+  if (!organizationId) {
+    return res.status(401).json({ message: "Organization ID is required" });
+  }
   try {
     const { checkIn, checkOut, status } = req.body;
-    
 
     // ✅ Only include fields that are provided in the request body
     const updateFields = {};
@@ -522,36 +573,69 @@ export const updateInstructorAttendance = async (req, res) => {
 
     // ✅ Ensure there's something to update
     if (Object.keys(updateFields).length === 0) {
-      return res.status(400).json({ message: "No valid fields provided for update" });
+      return res
+        .status(400)
+        .json({ message: "No valid fields provided for update" });
     }
+    // Auto-casting works
+    const filter = {
+      instructor: req.params.id,
+      branchId,
+      organizationId,
+    };
 
-    const attendance = await InstructorAttendance.findByIdAndUpdate(
-      req.params.id,
+    const attendance = await InstructorAttendance.findOneAndUpdate(
+      filter,
       updateFields,
       { new: true, runValidators: true }
     );
 
     if (!attendance) {
-      return res.status(404).json({ message: "Instructor attendance not found" });
+      return res
+        .status(404)
+        .json({ message: "Instructor attendance not found" });
     }
 
-    res.status(200).json({ message: "Attendance updated successfully", data: attendance });
-  }catch (error) {
+    res
+      .status(200)
+      .json({ message: "Attendance updated successfully", data: attendance });
+  } catch (error) {
     handleValidationError(error, res);
   }
 };
 
-
 // ✅ Delete Instructor Attendance
 export const deleteInstructorAttendance = async (req, res) => {
+    const branchId = req.branchId || req.params.branchId;
+  const organizationId = req.user?.organizationId || req.params.organizationId;
+  if (!branchId) {
+    return res
+      .status(401)
+      .json({ message: "Branch ID is required for this endpoint" });
+  }
+  if (!organizationId) {
+    return res.status(401).json({ message: "Organization ID is required" });
+  }
   try {
-    const attendance = await InstructorAttendance.findByIdAndDelete(req.params.id);
+      // Auto-casting works
+    const filter = {
+      _id:req.params.id,
+      branchId,
+      organizationId,
+    };
+    const attendance = await InstructorAttendance.findOneAndDelete(
+      filter
+    );
 
     if (!attendance) {
-      return res.status(404).json({ message: 'Instructor attendance not found' });
+      return res
+        .status(404)
+        .json({ message: "Instructor attendance not found" });
     }
 
-    res.status(200).json({ message: 'Instructor attendance deleted successfully' });
+    res
+      .status(200)
+      .json({ message: "Instructor attendance deleted successfully" });
   } catch (error) {
     handleValidationError(error, res);
   }

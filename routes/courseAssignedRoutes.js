@@ -12,7 +12,7 @@ const router = express.Router();
 
 router.post('/', jwtAuth(ROLE.superUsers),createCourseAssigned);
 router.get('/', jwtAuth(ROLE.branchTeam),getCourseAssigned);
-router.get('/:_id', jwtAuth(ROLE.branchTeam),getCourseAssigned);
+router.get('/:_id', jwtAuth(ROLE.everyone),getCourseAssigned);
 router.get('/ById/:_id',jwtAuth(ROLE.branchTeam), getCourseAssignedById);
 router.put('/:_id',jwtAuth(ROLE.adminLevel), updateCourseAssigned);
 router.delete('/:_id',jwtAuth(ROLE.superUsers), deleteCourseAssigned);

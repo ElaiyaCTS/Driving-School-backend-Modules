@@ -18,6 +18,7 @@ import branchRoutes from './branchRoutes.js';
 import adminRoutes from './adminRoutes.js';
 import instructorRoutes from './instructorRoutes.js';
 import learnerRoutes from './learnerRoutes.js';
+import branchExpenseRoutes from './branchExpenseRoutes.js';
 import ROLE from '../util/roleGroups.js';
 import jwtAuth  from '../middlewares/jwtMiddleware.js';
 
@@ -34,6 +35,7 @@ const registerRoleRoutes = (roleRouter) => {
   roleRouter.use('/dashboard', dashboardRoutes);
   roleRouter.use("/instructor", instructorRoutes);
   roleRouter.use("/learner", learnerRoutes);
+  roleRouter.use("/expenses", branchExpenseRoutes);
   roleRouter.use("/courses", courseRoutes);
   roleRouter.use("/course-assigned", courseAssignedRoutes);
   roleRouter.use("/learner-attendance", learnerAttendanceRoutes);
@@ -42,6 +44,8 @@ const registerRoleRoutes = (roleRouter) => {
   roleRouter.use("/tests", testRoutes);
   roleRouter.use('/staff', staffRouter);
   roleRouter.use('/staff-attendance', staffAttendanceRoutes);
+  roleRouter.use('/staff-attendance', staffAttendanceRoutes);
+
 };
 
 

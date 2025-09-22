@@ -1,15 +1,15 @@
 // controllers/learnerAttendanceController.js
-import LearnerAttendance from '../models/Learner_Attendance.models.js';
-import CourseAssigned from '../models/CourseAssigned.models.js';
-import Instructors from '../models/InstructorSchema.models.js';
-import Learner from '../models/LearnerSchema.models.js';
+import LearnerAttendance from "../models/Learner_Attendance.models.js";
+import CourseAssigned from "../models/CourseAssigned.models.js";
+import Instructors from "../models/InstructorSchema.models.js";
+import Learner from "../models/LearnerSchema.models.js";
 import mongoose from "mongoose";
 
 // 🔧 Reusable Validation & Cast Error Handler
 
 const handleValidationError = (error, res) => {
   // console.log(error);
-  
+
   const toTitleCase = (str) =>
     str.charAt(0).toUpperCase() + str.slice(1).replace(/([A-Z])/g, " $1");
 
@@ -53,74 +53,100 @@ const handleValidationError = (error, res) => {
   return res.status(500).json({ message: "Internal server error" });
 };
 
-
-// Create Attendance 
+// Create Attendance
 
 export const createAttendance = async (req, res) => {
-  try {
+  const branchId = req.branchId || req.params.branchId;
+  const organizationId = req.user?.organizationId || req.params.organizationId;
+  if (!branchId) {
+    return res
+      .status(401)
+      .json({ message: "Branch ID is required for this endpoint" });
+  }
+  if (!organizationId) {
+    return res.status(401).json({ message: "Organization ID is required" });
+  }
 
-      let attendanceData = { ...req.body, createdBy: req.user.user_id };
-     
+  try {
+    let attendanceData = {
+      ...req.body,
+      createdBy: req.user.user_id,
+      branchId,
+      organizationId,
+    };
+
     //   console.log(attendanceData);
     // return
-      
-      let updateStatus = req.body.readytotest || req.body.Extraclass;
 
-      if (updateStatus) {
-          const { courseId, statusOne, statusTwo, _id } = updateStatus;
-          const courseAssigned = await CourseAssigned.findById(_id);
+    let updateStatus = req.body.readytotest || req.body.Extraclass;
 
-          if (!courseAssigned) {
-              return res.status(404).json({ message: "Course Assignment not found" });
-          }
+    if (updateStatus) {
+      const { courseId, statusOne, statusTwo, _id } = updateStatus;
+      const courseAssigned = await CourseAssigned.findById(_id);
 
-          // Since `course` is a single ObjectId, direct comparison is needed
-          if (courseAssigned.course.toString() !== courseId) {
-              return res.status(404).json({ message: "Course ID does not match assigned course" });
-          }
-
-          // Update status fields
-          if (statusOne) courseAssigned.statusOne = statusOne;
-          if (statusTwo) courseAssigned.statusTwo = statusTwo;
-
-          await courseAssigned.save();
+      if (!courseAssigned) {
+        return res.status(404).json({ message: "Course Assignment not found" });
       }
 
-      // Create and save attendance record
-      const attendance = new LearnerAttendance(attendanceData);
-      await attendance.save();
-      return res.status(201).json(attendance);
+      // Since `course` is a single ObjectId, direct comparison is needed
+      if (courseAssigned.course.toString() !== courseId) {
+        return res
+          .status(404)
+          .json({ message: "Course ID does not match assigned course" });
+      }
 
+      // Update status fields
+      if (statusOne) courseAssigned.statusOne = statusOne;
+      if (statusTwo) courseAssigned.statusTwo = statusTwo;
+
+      await courseAssigned.save();
+    }
+
+    // Create and save attendance record
+    const attendance = new LearnerAttendance(attendanceData);
+    await attendance.save();
+    return res.status(201).json(attendance);
   } catch (error) {
     handleValidationError(error, res);
   }
 };
 
-
-
 // Get All Attendances with Date Filtering & Pagination
 export const getAllAttendances = async (req, res) => {
+  const branchId = req.branchId || req.params.branchId;
+  const organizationId = req.user?.organizationId || req.params.organizationId;
+  if (!branchId) {
+    return res
+      .status(401)
+      .json({ message: "Branch ID is required for this endpoint" });
+  }
+  if (!organizationId) {
+    return res.status(401).json({ message: "Organization ID is required" });
+  }
   try {
     const search = req.query.search?.trim() || "";
     const fromdate = req.query.fromdate || null;
     const todate = req.query.todate || null;
-    const date =req.query.date ||null;
-    const classType =req.query.classType ||null;
-  // console.log(req.params.id);
+    const date = req.query.date || null;
+    const classType = req.query.classType || null;
+    // console.log(req.params.id);
 
     let page = parseInt(req.query.page, 10);
     let limit = parseInt(req.query.limit, 10);
     const paginate = !isNaN(page) && !isNaN(limit) && page > 0 && limit > 0;
 
-    const matchFilter = {};
+    const matchFilter = {
+      organizationId: new mongoose.Types.ObjectId(organizationId),
+      branchId: new mongoose.Types.ObjectId(branchId),
+    };
 
     if (req.params.id) {
       matchFilter["learner"] = new mongoose.Types.ObjectId(req.params.id);
     }
-    if (fromdate && todate) { 
+    if (fromdate && todate) {
       matchFilter.date = {
         $gte: new Date(`${fromdate}T00:00:00.000Z`),
-        $lte: new Date(`${todate}T23:59:59.999Z`)
+        $lte: new Date(`${todate}T23:59:59.999Z`),
       };
     } else if (date) {
       const searchDate = new Date(`${date}T00:00:00.000Z`);
@@ -137,7 +163,7 @@ export const getAllAttendances = async (req, res) => {
     if (req.query.classType) {
       matchFilter.classType = { $regex: req.query.classType, $options: "i" };
     }
-   
+
     // Try parsing search as date
     const isValidDate = (str) => {
       const parts = str.split("-");
@@ -151,8 +177,22 @@ export const getAllAttendances = async (req, res) => {
 
     if (parsedSearchDate) {
       matchFilter.date = {
-        $gte: new Date(parsedSearchDate.getFullYear(), parsedSearchDate.getMonth(), parsedSearchDate.getDate(), 0, 0, 0),
-        $lt: new Date(parsedSearchDate.getFullYear(), parsedSearchDate.getMonth(), parsedSearchDate.getDate() + 1, 0, 0, 0),
+        $gte: new Date(
+          parsedSearchDate.getFullYear(),
+          parsedSearchDate.getMonth(),
+          parsedSearchDate.getDate(),
+          0,
+          0,
+          0
+        ),
+        $lt: new Date(
+          parsedSearchDate.getFullYear(),
+          parsedSearchDate.getMonth(),
+          parsedSearchDate.getDate() + 1,
+          0,
+          0,
+          0
+        ),
       };
     }
 
@@ -249,7 +289,10 @@ export const getAllAttendances = async (req, res) => {
       {
         $addFields: {
           attendedDays: {
-            $ifNull: [{ $arrayElemAt: ["$attendanceCount.attendedDays", 0] }, 0],
+            $ifNull: [
+              { $arrayElemAt: ["$attendanceCount.attendedDays", 0] },
+              0,
+            ],
           },
         },
       },
@@ -301,7 +344,12 @@ export const getAllAttendances = async (req, res) => {
                   $round: [
                     {
                       $multiply: [
-                        { $divide: ["$attendedDays", { $ifNull: ["$course.duration", 1] }] },
+                        {
+                          $divide: [
+                            "$attendedDays",
+                            { $ifNull: ["$course.duration", 1] },
+                          ],
+                        },
                         100,
                       ],
                     },
@@ -327,13 +375,19 @@ export const getAllAttendances = async (req, res) => {
       ? [
           {
             $facet: {
-              data: [...pipeline, { $skip: (page - 1) * limit }, { $limit: limit }],
+              data: [
+                ...pipeline,
+                { $skip: (page - 1) * limit },
+                { $limit: limit },
+              ],
               total: [...pipeline, { $count: "count" }],
             },
           },
           {
             $addFields: {
-              totalCount: { $ifNull: [{ $arrayElemAt: ["$total.count", 0] }, 0] },
+              totalCount: {
+                $ifNull: [{ $arrayElemAt: ["$total.count", 0] }, 0],
+              },
             },
           },
         ]
@@ -364,16 +418,24 @@ export const getAllAttendances = async (req, res) => {
   }
 };
 
-
-
-  // Get Attendance by ID
+// Get Attendance by ID
 
 export const getAttendanceById = async (req, res) => {
+    const branchId = req.branchId || req.params.branchId;
+  const organizationId = req.user?.organizationId || req.params.organizationId;
+  if (!branchId) {
+    return res
+      .status(401)
+      .json({ message: "Branch ID is required for this endpoint" });
+  }
+  if (!organizationId) {
+    return res.status(401).json({ message: "Organization ID is required" });
+  }
   try {
     const { fromdate, todate, page = 1, limit = 10 } = req.query;
     const learnerId = req.params.id;
 
-    let filter = { learner: learnerId };
+    let filter = { learner: learnerId, branchId, organizationId };
 
     // Handle date range filtering
     if (fromdate && todate) {
@@ -386,22 +448,26 @@ export const getAttendanceById = async (req, res) => {
       filter.date = { $gte: fromDateObj, $lte: toDateObj };
     }
 
-    const totalAttendanceRecords = await LearnerAttendance.countDocuments(filter);
+    const totalAttendanceRecords = await LearnerAttendance.countDocuments(
+      filter
+    );
 
     const attendances = await LearnerAttendance.find(filter)
-      .populate('learner')
-      .populate('courseType')
+      .populate("learner")
+      .populate("courseType")
       .sort({ date: -1 }) // optional: sort by date instead of createdAt
       .skip((parseInt(page) - 1) * parseInt(limit))
       .limit(parseInt(limit));
 
     if (!attendances.length) {
-      return res.status(404).json({ message: 'No attendance records found for this learner' });
+      return res
+        .status(404)
+        .json({ message: "No attendance records found for this learner" });
     }
 
     const learnerDetails = attendances[0].learner;
 
-    const attendanceRecords = attendances.map(att => ({
+    const attendanceRecords = attendances.map((att) => ({
       _id: att._id,
       courseType: att.courseType,
       classType: att.classType,
@@ -423,30 +489,57 @@ export const getAttendanceById = async (req, res) => {
     };
 
     res.status(200).json(formattedResponse);
-  }catch (error) {
+  } catch (error) {
     handleValidationError(error, res);
   }
 };
 
-
 // Update Attendance
 export const updateAttendance = async (req, res) => {
-    try {
-        const attendance = await LearnerAttendance.findByIdAndUpdate(req.params.id, req.body, { new: true });
-        if (!attendance) return res.status(404).json({ message: 'Attendance not found' });
-        res.status(200).json(attendance);  
-    } catch (error) {
+    const branchId = req.branchId || req.params.branchId;
+  const organizationId = req.user?.organizationId || req.params.organizationId;
+  if (!branchId) {
+    return res
+      .status(401)
+      .json({ message: "Branch ID is required for this endpoint" });
+  }
+  if (!organizationId) {
+    return res.status(401).json({ message: "Organization ID is required" });
+  }
+  const filter = { _id: req.params.id, branchId, organizationId };
+  try {
+    const attendance = await LearnerAttendance.findOneAndUpdate(
+      filter,
+      req.body,
+      { new: true }
+    );
+    if (!attendance)
+      return res.status(404).json({ message: "Attendance not found" });
+    res.status(200).json(attendance);
+  } catch (error) {
     handleValidationError(error, res);
   }
 };
 
 // Delete Attendance
 export const deleteAttendance = async (req, res) => {
-    try {
-        const attendance = await LearnerAttendance.findByIdAndDelete(req.params.id);
-        if (!attendance) return res.status(404).json({ message: 'Attendance not found' });
-        res.status(200).json({ message: 'Attendance deleted successfully' });
-    } catch (error) {
+    const branchId = req.branchId || req.params.branchId;
+  const organizationId = req.user?.organizationId || req.params.organizationId;
+  if (!branchId) {
+    return res
+      .status(401)
+      .json({ message: "Branch ID is required for this endpoint" });
+  }
+  if (!organizationId) {
+    return res.status(401).json({ message: "Organization ID is required" });
+  }
+  try {
+    const filter={_id:req.params.id,branchId,organizationId};
+    const attendance = await LearnerAttendance.findOneAndDelete(filter);
+    if (!attendance)
+      return res.status(404).json({ message: "Attendance not found" });
+    res.status(200).json({ message: "Attendance deleted successfully" });
+  } catch (error) {
     handleValidationError(error, res);
   }
 };

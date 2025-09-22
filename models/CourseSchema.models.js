@@ -22,11 +22,7 @@ const CourseEnrollmentSchema = new mongoose.Schema({
     type: Number,
     required: [true, 'fee is must be number']
   },
-    branchId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Branch',
-      default: null, // Optional, can be null if admin is not assigned to a branch
-    },
+
       organizationId: {
           type: mongoose.Schema.Types.ObjectId,
            ref: 'organization',

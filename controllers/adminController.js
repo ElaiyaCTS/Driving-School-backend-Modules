@@ -7,6 +7,7 @@ import {
   deleteAdminFileFromDrive,
 } from "../util/googleDriveUpload.js";
 import { handleErrorResponse } from "../util/errorHandler.js";
+import router from "../routes/branchRoutes.js";
 
 // Helper to check valid ObjectId
 const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
@@ -149,7 +150,7 @@ export const getAllAdmins = async (req, res) => {
   const organizationId = req.user?.organizationId || req.query.organizationId;
   const branchId = req.params || null;
 
-  // console.log("Matched path:", req.route.path);
+  console.log("Matched path:", req.route.path);
   // will log either '/:organizationId' or '/un-assigned-admin/:organizationId'
 
   if (req.route.path === "/un-assigned-admin") {
@@ -164,17 +165,6 @@ export const getAllAdmins = async (req, res) => {
         message: "Unassigned admins fetched successfully",
         data: un_assigned_admins,
       });
-    } catch (error) {
-      handleErrorResponse(res, error);
-    }
-  } else if (req.route.path === "/") {
-    // Normal admins (assigned or all, depending on your need)
-    try {
-      const admins = await Admin.find({ organizationId })
-        .populate("branchId", "branchName")
-        .populate("userId", "username role");
-
-      res.json({ message: "Admins fetched successfully", data: admins });
     } catch (error) {
       handleErrorResponse(res, error);
     }
@@ -193,8 +183,133 @@ export const getAllAdmins = async (req, res) => {
     } catch (error) {
       handleErrorResponse(res, error);
     }
+  } 
+  else if (req.route.path === "/") {
+
+  try {
+    if (!req.user?.organizationId) {
+      return res
+        .status(401)
+        .json({ message: "Organization ID is required for this endpoint" });
+    }
+
+    const organizationId = new mongoose.Types.ObjectId(req.user.organizationId);
+    const { page = 1, limit = 10, search = "" } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const match = { organizationId };
+
+    // 🔹 Build search filter
+    let searchMatch = {};
+    if (search && search.trim() !== "") {
+      searchMatch = {
+        $or: [
+          { fullName: { $regex: search, $options: "i" } },
+          { gender: { $regex: search, $options: "i" } },
+          { mobileNumber: { $regex: search, $options: "i" } },
+          { "branch.branchName": { $regex: search, $options: "i" } },
+        ],
+      };
+    }
+
+    const pipeline = [
+      { $match: match },
+
+      // Lookup branch
+      {
+        $lookup: {
+          from: "branches",
+          localField: "branchId",
+          foreignField: "_id",
+          as: "branch",
+        },
+      },
+      { $unwind: { path: "$branch", preserveNullAndEmptyArrays: true } },
+
+      // Lookup user
+      {
+        $lookup: {
+          from: "users",
+          localField: "userId",
+          foreignField: "_id",
+          as: "userId",
+        },
+      },
+      { $unwind: "$userId" },
+
+      // Apply search
+      ...(search ? [{ $match: searchMatch }] : []),
+
+      // Project the same shape as your old output
+      {
+        $project: {
+          _id: 1,
+          fullName: 1,
+          fathersName: 1,
+          mobileNumber: 1,
+          dateOfBirth: 1,
+          gender: 1,
+          bloodGroup: 1,
+          address: 1,
+          joinDate: 1,
+          email: 1,
+          branchId: {
+            _id: "$branch._id",
+            branchName: "$branch.branchName",
+          },
+          organizationId: 1,
+          active: 1,
+          photo: 1,
+          createdAt: 1,
+          updatedAt: 1,
+          __v: 1,
+          userId: {
+            _id: "$userId._id",
+            username: "$userId.username",
+            role: "$userId.role",
+            decryptedPassword: "Decryption Failed", // static like old output
+            id: { $toString: "$userId._id" },
+          },
+        },
+      },
+    ];
+
+    // Count pipeline
+    const countPipeline = [...pipeline, { $count: "total" }];
+
+    const [admins, totalCount] = await Promise.all([
+      Admin.aggregate([...pipeline, { $skip: skip }, { $limit: parseInt(limit) }]),
+      Admin.aggregate(countPipeline),
+    ]);
+
+    res.json({
+      message: "Admins fetched successfully",
+      data: admins,
+      total: totalCount[0]?.total || 0,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      totalPages: Math.ceil((totalCount[0]?.total || 0) / parseInt(limit)),
+    });
+  } catch (error) {
+      handleErrorResponse(res, error);
+    }
+
   }
+
 };
+
+// export const getAllAdmins = async (req, res) => {
+
+
+
+
+
+
+
+// };
+
+
+
 
 // ✅ Get single admin
 export const getAdminById = async (req, res) => {
