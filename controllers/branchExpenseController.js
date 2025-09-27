@@ -1,6 +1,6 @@
 import BranchExpense from "../models/BranchExpenseSchema.models.js";
 import { uploadExpensesFile, deleteExpenseFile } from "../util/googleDriveUpload.js";
-
+import mongoose from "mongoose";
 /**
  * CREATE a new expense
  */
@@ -42,16 +42,162 @@ export const createExpense = async (req, res) => {
 /**
  * GET all expenses for a branch
  */
+// export const getBranchExpenses = async (req, res) => {
+//   try {
+//     const branchId = req.branchId || req.params.branchId;
+//     const organizationId = req.user?.organizationId || req.params.organizationId;
+
+//     if (!branchId) return res.status(401).json({ message: "Branch ID is required" });
+//     if (!organizationId) return res.status(401).json({ message: "Organization ID is required" });
+
+//     const expenses = await BranchExpense.find({ branch: branchId }).sort({ createdAt: -1 });
+//     res.json({ success: true, expenses });
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).json({ success: false, message: error.message });
+//   }
+// };
+
+
+
+// export const getBranchExpenses = async (req, res) => {
+//   try {
+//     const branchId = req.branchId || req.params.branchId;
+//     const organizationId = req.user?.organizationId || req.params.organizationId;
+
+//     if (!branchId) return res.status(400).json({ success: false, message: "Branch ID is required" });
+//     if (!organizationId) return res.status(400).json({ success: false, message: "Organization ID is required" });
+
+//     // ✅ Query params
+//     const {
+//       search = "",         // category/description/amount text search
+//       fromDate,            // e.g. 2025-09-01
+//       toDate,              // e.g. 2025-09-22
+//       page = 1,
+//       limit = 10
+//     } = req.query;
+
+//     const query = {
+//       branch: branchId,
+//       organizationId
+//     };
+
+//     // 🔎 Search by category, description, or amount
+//     if (search.trim()) {
+//       const regex = new RegExp(search, "i"); // case-insensitive
+//       query.$or = [
+//         { category: regex },
+//         { description: regex },
+//         // If user types a number, allow amount matching
+//         ...(isNaN(Number(search)) ? [] : [{ amount: Number(search) }])
+//       ];
+//     }
+
+//     // 📅 Date range filter on createdAt
+//     if (fromDate || toDate) {
+//       query.createdAt = {};
+//       if (fromDate) query.createdAt.$gte = new Date(fromDate);
+//       if (toDate) {
+//         const end = new Date(toDate);
+//         end.setHours(23, 59, 59, 999); // include full day
+//         query.createdAt.$lte = end;
+//       }
+//     }
+
+//     // Pagination
+//     const pageNum = Math.max(parseInt(page), 1);
+//     const pageSize = Math.max(parseInt(limit), 1);
+//     const skip = (pageNum - 1) * pageSize;
+
+//     const [expenses, total] = await Promise.all([
+//       BranchExpense.find(query)
+//         .sort({ createdAt: -1 })
+//         .skip(skip)
+//         .limit(pageSize),
+//       BranchExpense.countDocuments(query)
+//     ]);
+
+//     res.json({
+//       success: true,
+//       total,
+//       page: pageNum,
+//       limit: pageSize,
+//       pages: Math.ceil(total / pageSize),
+//       expenses
+//     });
+//   } catch (error) {
+//     console.error("getBranchExpenses error:", error);
+//     res.status(500).json({ success: false, message: error.message });
+//   }
+// };
+
+
+
+// ✅ GET /api/v1/expenses/branch/:branchId
 export const getBranchExpenses = async (req, res) => {
   try {
     const branchId = req.branchId || req.params.branchId;
     const organizationId = req.user?.organizationId || req.params.organizationId;
 
-    if (!branchId) return res.status(401).json({ message: "Branch ID is required" });
-    if (!organizationId) return res.status(401).json({ message: "Organization ID is required" });
+    if (!branchId) return res.status(400).json({ success: false, message: "Branch ID is required" });
+    if (!organizationId) return res.status(400).json({ success: false, message: "Organization ID is required" });
 
-    const expenses = await BranchExpense.find({ branch: branchId }).sort({ createdAt: -1 });
-    res.json({ success: true, expenses });
+    // ✅ Accept frontend query params
+    const {
+        category="",  // filter by category
+      search = "",
+      from = "",     // ✅ keep same as frontend
+      to = "",
+      page = 1,
+      limit = 10
+    } = req.query;
+
+    const query = { branch: branchId, organizationId };
+
+    // 🔎 Search by category, description, or amount
+    if (search.trim()) {
+      const regex = new RegExp(search, "i");
+      query.$or = [
+        { category: regex },
+        { description: regex },
+        ...(isNaN(Number(search)) ? [] : [{ amount: Number(search) }])
+      ];
+    }
+
+    if(category){
+      query.category = category;
+    }
+
+    // 📅 Date range
+    if (from || to) {
+      query.createdAt = {};
+      if (from) query.createdAt.$gte = new Date(from);
+      if (to) {
+        const end = new Date(to);
+        end.setHours(23, 59, 59, 999);
+        query.createdAt.$lte = end;
+      }
+    }
+
+    const pageNum = Math.max(parseInt(page), 1);
+    const pageSize = Math.max(parseInt(limit), 1);
+    const skip = (pageNum - 1) * pageSize;
+
+    const [expenses, total] = await Promise.all([
+      BranchExpense.find(query)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(pageSize),
+      BranchExpense.countDocuments(query)
+    ]);
+
+    res.json({
+      success: true,
+      expenses,
+      total,
+      totalPages: Math.ceil(total / pageSize),
+      page: pageNum
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ success: false, message: error.message });

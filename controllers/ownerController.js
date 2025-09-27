@@ -3,13 +3,25 @@ import Organization from "../models/organizationModel.js";
 import User from "../models/userModel.js";
 import { handleErrorResponse } from "../util/errorHandler.js";
 import mongoose from "mongoose";
+import {
+  uploadAdminFile,
+  deleteAdminFileFromDrive,
+} from "../util/googleDriveUpload.js";
 // controller/organizationController.js
+
 
 // 🔸 Create Organization with Owner
 
 export const createOrganizationWithOwner = async (req, res) => {
+    // console.log(req.body);
+    // console.log(req.files);
+    // // req.files?.photo?.[0]
+    // console.log('req.files?.photo?.[0]:', req.files?.photo?.[0])
+    // console.log('req.files?.logo?.[0]:', req.files?.logo?.[0])
+// return
   const session = await mongoose.startSession();
   session.startTransaction();
+  let uploadedFiles = [];
 
   try {
     const {
@@ -65,7 +77,25 @@ export const createOrganizationWithOwner = async (req, res) => {
       ],
       { session }
     );
-
+     
+       // ✅ Handle Owner photo upload if provided
+           if (req.files?.photo?.[0]) {
+             const file = req.files.photo[0];
+       
+             // Check file size (5 MB max)
+             if (file.size > 5 * 1024 * 1024) {
+               throw new Error("Photo must be less than 5 MB");
+             }
+       
+             const newFileName = `photo_${newOwner._id || Date.now()}`;
+             file.originalname = newFileName;
+       
+             const uploadedFile = await uploadAdminFile(file); // Upload to Drive or your storage
+             newOwner.photo = uploadedFile.webViewLink; // Store public view link
+             uploadedFiles.push(uploadedFile.id); // Track for rollback if needed
+           }
+       
+    
     // Step 3: Update User with dynamic ref
     newUser.refId = newOwner._id;
     newUser.refModel = "Owner";
@@ -85,10 +115,26 @@ export const createOrganizationWithOwner = async (req, res) => {
       ],
       { session }
     );
-
+// ✅ Handle Owner logo upload if provided
+           if (req.files?.logo?.[0]) {
+             const file = req.files.logo[0];
+       
+             // Check file size (5 MB max)
+             if (file.size > 5 * 1024 * 1024) {
+               throw new Error("logo must be less than 5 MB");
+             }
+       
+             const newFileName = `logo_${newOwner._id || Date.now()}`;
+             file.originalname = newFileName;
+       
+             const uploadedFile = await uploadAdminFile(file); // Upload to Drive or your storage
+             newOrg.logo = uploadedFile.webViewLink; // Store public view link
+             uploadedFiles.push(uploadedFile.id); // Track for rollback if needed
+           }
     // Step 5: Link organizationId to owner
      newOwner.organizationId = newOrg._id; // Link owner to organization
     await newOwner.save({ session });
+    await newOrg.save({ session });
     
     await session.commitTransaction();
     session.endSession();
@@ -221,24 +267,73 @@ export const getOwnerById = async (req, res) => {
 };
 
 // 🔸 UPDATE Owner
+// export const updateOwner = async (req, res) => {
+//   try {
+//     const { ownerName, email, mobileNumber, AlternativeNumber, address } = req.body;
+
+//     const updatedOwner = await Owner.findByIdAndUpdate(
+//       req.params.id,
+//       {
+//         ownerName,
+//         email,
+//         mobileNumber,
+//         AlternativeNumber,
+//         address,
+//       },
+//       { new: true }
+//     );
+
+    
+//     if (!updatedOwner)
+//       return res.status(404).json({ message: "Owner not found" });
+
+//     res.status(200).json({
+//       message: "Owner updated successfully",
+//       owner: updatedOwner,
+//     });
+//   } catch (error) {
+//     handleErrorResponse(res, error, "Failed to update owner");
+//   }
+// };
 export const updateOwner = async (req, res) => {
+  let uploadedFiles = [];
   try {
     const { ownerName, email, mobileNumber, AlternativeNumber, address } = req.body;
 
+    // 🔹 Update basic fields first
     const updatedOwner = await Owner.findByIdAndUpdate(
       req.params.id,
-      {
-        ownerName,
-        email,
-        mobileNumber,
-        AlternativeNumber,
-        address,
-      },
+      { ownerName, email, mobileNumber, AlternativeNumber, address },
       { new: true }
     );
 
-    if (!updatedOwner)
+    if (!updatedOwner) {
       return res.status(404).json({ message: "Owner not found" });
+    }
+
+    // ✅ Handle Owner photo upload if provided
+    if (req.files?.photo?.[0]) {
+      const file = req.files.photo[0];
+
+      // Check file size (5 MB max)
+      if (file.size > 5 * 1024 * 1024) {
+        throw new Error("Photo must be less than 5 MB");
+      }
+
+      const newFileName = `photo_${updatedOwner._id}_${Date.now()}`;
+
+      // Upload to Drive or your storage
+      const uploadedFile = await uploadAdminFile({
+        ...file,
+        originalname: newFileName,
+      });
+
+      // Save photo link to DB
+      updatedOwner.photo = uploadedFile.webViewLink;
+      await updatedOwner.save();
+
+      uploadedFiles.push(uploadedFile.id); // Track for rollback if needed
+    }
 
     res.status(200).json({
       message: "Owner updated successfully",
@@ -250,9 +345,49 @@ export const updateOwner = async (req, res) => {
 };
 
 // 🔸 UPDATE Organization
+// export const updateOrganization = async (req, res) => {
+//   try {
+//     const { orgId } = req.params;
+
+//     const {
+//       organizationName,
+//       organizationEmail,
+//       organizationMobileNumber,
+//       organizationAddress,
+//     } = req.body;
+
+//     const updatedOrg = await Organization.findByIdAndUpdate(
+//       orgId,
+//       {
+//         ...(organizationName && { organizationName }),
+//         ...(organizationEmail && { organizationEmail }),
+//         ...(organizationMobileNumber && { organizationMobileNumber }),
+//         ...(organizationAddress && { organizationAddress }), // must be full object if updating address
+//       },
+//       { new: true, runValidators: true }
+//     );
+
+//     if (!updatedOrg) {
+//       return res.status(404).json({ message: "Organization not found" });
+//     }
+
+//     res.status(200).json({
+//       message: "Organization updated successfully",
+//       organization: updatedOrg,
+//     });
+//   } catch (error) {
+//     console.error("Error updating organization:", error);
+//     handleErrorResponse(res, error, "Failed to delete owner");
+//     // res.status(500).json({ message: 'Internal Server Error' });
+//   }
+// };
+
 export const updateOrganization = async (req, res) => {
+
+    console.log('req.body:', req.body);
+    
   try {
-    const { orgId } = req.params;
+    const orgId  = req.params.id;
 
     const {
       organizationName,
@@ -261,6 +396,7 @@ export const updateOrganization = async (req, res) => {
       organizationAddress,
     } = req.body;
 
+    // 🔹 Update basic organization fields first
     const updatedOrg = await Organization.findByIdAndUpdate(
       orgId,
       {
@@ -275,6 +411,29 @@ export const updateOrganization = async (req, res) => {
     if (!updatedOrg) {
       return res.status(404).json({ message: "Organization not found" });
     }
+    console.log(req.files);
+    
+    // ✅ Handle logo upload if provided
+     if (req.files?.logo?.[0]) {
+             const file = req.files.logo[0];
+      // Check file size (5 MB max)
+      if (file.size > 5 * 1024 * 1024) {
+        throw new Error("Logo must be less than 5 MB");
+      }
+
+      // Create a unique file name
+      const newFileName = `logo_${updatedOrg._id}_${Date.now()}`;
+
+      // Upload to Drive or your storage service
+      const uploadedFile = await uploadAdminFile({
+        ...file,
+        originalname: newFileName,
+      });
+
+      // Save logo link in DB
+      updatedOrg.logo = uploadedFile.webViewLink;
+      await updatedOrg.save(); // 🔑 Persist logo change
+    }
 
     res.status(200).json({
       message: "Organization updated successfully",
@@ -282,10 +441,24 @@ export const updateOrganization = async (req, res) => {
     });
   } catch (error) {
     console.error("Error updating organization:", error);
-    handleErrorResponse(res, error, "Failed to delete owner");
-    // res.status(500).json({ message: 'Internal Server Error' });
+    handleErrorResponse(res, error, "Failed to update organization");
   }
 };
+
+export const getOrganizationById = async (req, res) => {
+    try {
+      const organization = await Organization.findById(req.params.id);
+      if (!organization) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+      res.status(200).json(organization);
+    } catch (error) {
+      console.error("Error fetching organization:", error);
+      handleErrorResponse(res, error, "Failed to fetch organization");
+    }
+};
+
+
 
 // 🔸 DELETE Owner
 // export const deleteOwner = async (req, res) => {

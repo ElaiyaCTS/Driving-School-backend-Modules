@@ -3,6 +3,11 @@
 import mongoose from 'mongoose';
 
 const ownerSchema = new mongoose.Schema({
+     photo: {
+    type: String,
+    // required: [true, 'Photo is required'],
+    default: null,
+  },
   ownerName: { //no
     type: String,
     required: [true, 'Owner Name is required'],

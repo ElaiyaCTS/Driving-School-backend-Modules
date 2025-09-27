@@ -402,8 +402,8 @@ export const updateAdmin = async (req, res) => {
       const uploadedFile = await uploadAdminFile(file);
       admin.photo = uploadedFile.webViewLink;
       admin.photoId = uploadedFile.id;
-      console.log(admin.photo);
-      console.log(admin.photoId);
+    //   console.log(admin.photo);
+    //   console.log(admin.photoId);
 
       uploadedFiles.push(uploadedFile.id);
     }

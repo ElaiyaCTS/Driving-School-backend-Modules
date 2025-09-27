@@ -29,7 +29,7 @@ const router = express.Router();
 // Helper to register shared routes
 const registerRoleRoutes = (roleRouter) => {
 //   roleRouter.use("/", userRoutes);
-  roleRouter.use('/organization',jwtAuth(ROLE.superUsers), ownerRoutes);
+  roleRouter.use('/organization', ownerRoutes);
   roleRouter.use('/admins', adminRoutes);// Admin routes
   roleRouter.use('/branches', branchRoutes);
   roleRouter.use('/dashboard', dashboardRoutes);

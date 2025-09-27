@@ -3,6 +3,11 @@
 import mongoose from 'mongoose';
 
 const  organizationSchema = new mongoose.Schema({
+     logo: {
+    type: String,
+    default: null,
+    // required: [true, 'organization Logo is required'],
+  },
   organizationName: {
     type: String,
     required: [true, 'Organization Name is required'],
