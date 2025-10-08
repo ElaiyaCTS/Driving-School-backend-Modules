@@ -25,7 +25,8 @@ const jwtAuth = (roles = []) => {
       req.user = decoded;
     //   console.log(req.user);
       
-        req.branchId = branchIdHeader || req.user.branchId || null; // ✅ priority: header > JWT payload
+        req.branchId = branchIdHeader || req.user.branchId || null; // ✅ priority: header > 
+        //JWT payload
     //   req.branchId = branchId || "68a5b8b9ebc6f065f5b5520e"; // ✅ safe fallback
       next();
     } catch (err) {

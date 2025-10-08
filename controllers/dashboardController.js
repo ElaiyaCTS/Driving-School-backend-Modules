@@ -278,7 +278,7 @@ import mongoose from "mongoose";
 //     res.status(500).json({ success: false, message: error.message });
 //   }
 // };
-
+import { handleErrorResponse } from "../util/errorHandler.js";
 
 
 
@@ -362,7 +362,8 @@ export const getOwnerDashboard = async (req, res) => {
     });
   } catch (error) {
     console.error("Dashboard Error:", error);
-    res.status(500).json({ success: false, message: error.message });
+    handleErrorResponse(res, error);
+    // res.status(500).json({ success: false, message: error.message });
   }
 };
 

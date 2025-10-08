@@ -12,6 +12,7 @@ import {
 } from '../controllers/ownerController.js';
 import ROLE from '../util/roleGroups.js';
 import jwtAuth  from '../middlewares/jwtMiddleware.js';
+import checkSubscription from '../middlewares/checkSubscription.js';
 const router = express.Router();
 import multer from "multer";
 const storage = multer.memoryStorage();
@@ -39,26 +40,26 @@ router.post('/:orgId/add-owner', addCoOwnerToOrganization );
 
 // GET /api/v1/organization/:id
 // router.get('/:id', jwtAuth(ROLE.superUsers), getOwnerById);
-router.get('/:id',  getOwnerById);
+router.get('/:id', jwtAuth(ROLE.superUsers),checkSubscription, getOwnerById);
 
 
 // GET All /api/v1/organization/
 // router.get('/', jwtAuth(ROLE.superUsers), getAllOwners);
-router.get('/',  getAllOwners);
+router.get('/', jwtAuth(ROLE.superUsers),checkSubscription, getAllOwners);
 
 
 // GET SINGLE organization  /api/v1/organization/getSingleOrganization/:id
 // router.get('/', jwtAuth(ROLE.superUsers), getAllOwners);
-router.get('/getSingleOrganization/:id',  getOrganizationById);
+router.get('/getSingleOrganization/:id',jwtAuth(ROLE.superUsers),checkSubscription,  getOrganizationById);
 
 
 // PUT /api/v1/organization/:id
 // router.put('/:id',jwtAuth(ROLE.superUsers),  updateOwner);
-router.put('/:id', upload.fields(singelFile), updateOwner);
+router.put('/:id',jwtAuth(ROLE.superUsers),checkSubscription, upload.fields(singelFile), updateOwner);
 
  // PUT /api/v1/organization/updateOrganization/:orgId
 // router.put('/updateOrganization/:orgId', jwtAuth(ROLE.superUsers), updateOrganization);
-router.put('/updateOrganization/:id',upload.fields(logoFile), updateOrganization);
+router.put('/updateOrganization/:id', jwtAuth(ROLE.superUsers),checkSubscription,upload.fields(logoFile), updateOrganization);
 
 // DELETE /api/v1/:id
 // router.delete('/:id',jwtAuth(ROLE.systemAdmins),  deleteOwner);

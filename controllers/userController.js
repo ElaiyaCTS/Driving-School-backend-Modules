@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import moment from "moment";
 import User from "../models/userModel.js";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
@@ -7,7 +8,7 @@ import { comparePasswords } from "../util/encrypt.js";
 import { getUserInfoByRole } from "../util/getUserInfoByRole.js";
 import cookie from "cookie";
 const isProd = process.env.NODE_ENV === "production";
-
+import Subscription from "../models/SubscriptionSchema.js";
 // login user
 const login = async (req, res) => {
   const { username, password } = req.body; // removed role
@@ -38,15 +39,43 @@ const login = async (req, res) => {
     if (!userinfo)
       return res.status(400).json({ message: "User info not found" });
     // console.log('====================================');
-    // console.log(userinfo);
+    console.log(userinfo);
     // console.log('====================================');
     // 4️⃣ Prepare JWT payload (exclude photo for Owner)
+  
+ 
+    // 🔹 Get latest subscription for the organization
+    let subscriptionInfo = null;
+    const subscription = await Subscription.findOne({
+      organizationId: userinfo.organizationId,
+    }).sort({ endedAt: -1 });
+
+    if (subscription) {
+      const isExpired = moment(subscription.endedAt).isBefore(moment());
+
+      // auto-update DB if expired
+      if (isExpired && subscription.status !== "expired") {
+        await Subscription.findByIdAndUpdate(subscription._id, {
+          status: "expired",
+        });
+      }
+
+      subscriptionInfo = {
+        status: isExpired ? "expired" : subscription.status,
+        endedAt: subscription.endedAt,
+      };
+    }
+
+
+
+
     const payload = {
       id: user._id,
       role: user.role,
       user_id: user.refId,
       Name: userinfo.fullName,
       organizationId: userinfo.organizationId,
+      subscription: subscriptionInfo,
     };
 
     if (user.role !== "Owner") {
@@ -76,6 +105,8 @@ const login = async (req, res) => {
       user_id: user.refId,
       Name: userinfo.fullName,
       organizationId: userinfo.organizationId,
+      subscription: subscriptionInfo,
+
     };
 
     if (user.role !== "Owner") {

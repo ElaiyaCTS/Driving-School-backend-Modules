@@ -9,7 +9,7 @@ import {
 import multer from "multer";
 import ROLE from '../util/roleGroups.js';
 import jwtAuth from '../middlewares/jwtMiddleware.js';
-
+import checkSubscription from '../middlewares/checkSubscription.js';
 const router = express.Router();
 // Set up multer for file uploads
 const storage = multer.memoryStorage();

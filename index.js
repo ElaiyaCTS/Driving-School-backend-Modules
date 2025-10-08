@@ -8,33 +8,8 @@ import roleBasedRoutes from "./routes/index.js";
 import cookieParser from "cookie-parser";
 import imageProxyRoutes from './routes/imageProxyRoutes.js';
 import UserRouter from "./routes/UserRouter.js";
-
-// ...
-// // import  "./config/db.js";
-// import adminCombinedRoutes from "./routes/adminCombinedRoutes/index.js";
-// import userCombinedRoutes from "./routes/userCombinedRoutes/userCombinedRoutes.js"; 
-// // import exadminRoutes from "./routes/exadminRoutes.js";
-// import courseRoutes from "./routes/courseRoutes.js";
-// import courseAssignedRoutes from "./routes/courseAssignedRoutes.js";
-// import learnerAttendanceRoutes from './routes/learnerAttendanceRoutes.js';
-// import instructorAttendanceRoutes from './routes/instructorAttendanceRoutes.js';
-// import paymentRoutes from "./routes/paymentRoutes.js";
-// import testRoutes from "./routes/testRoutes.js";
-// import {sendSMS} from "./util/otp-service.js";
-// import staffAttendanceRoutes from './routes/staffAttendanceRoutes.js';
-// import staffRouter from './routes/staffRouter.js';
-// import ownerRoutes from './routes/ownerRoutes.js';
-// // import uploadRoutes from "./routes/uploadRoutes.js";
-// import axios from "axios";
-// // import exadminRoutes from "./routes/"; 
-// import helmet from "helmet";
-// import dashboardRoutes from './routes/dashboard.js';
-// // in app.js or server.js
-// import branchRoutes from './routes/branchRoutes.js';
-// import adminRoutes from './routes/adminRoutes.js';
-// import instructorRoutes from './routes/instructorRoutes.js';
-// import learnerRoutes from './routes/learnerRoutes.js';
-
+import subscriptionRoutes from "./routes/SubscriptionRoutes.js";
+import plansRoutes from "./routes/planRoutes.js";
 
 
 dotenv.config();
@@ -77,11 +52,13 @@ app.get("/", (req, res) => res.send("Server running"));
 
 // Role-based APIs
 app.use("/api", roleBasedRoutes);
+app.use("/api/plans", plansRoutes);
 
 app.use("/api/user", UserRouter);  
 
 app.use("/api/image-proxy", imageProxyRoutes);
 
+app.use("/api/subscription", subscriptionRoutes);
 
 
 
