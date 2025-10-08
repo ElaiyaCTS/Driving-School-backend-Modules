@@ -7,7 +7,7 @@ const checkSubscription = async (req, res, next) => {
 console.log("Checking subscription for org:", organizationId);
 
     if (!organizationId) {
-      return res.status(403).json({ error: "Organization ID missing in token" ,message:"Organization ID missing in token"});
+      return res.status(401).json({ error: "Organization ID missing in token" ,message:"Organization ID missing in token"});
     }
 
     // Find active subscription for this org
@@ -17,7 +17,7 @@ console.log("Checking subscription for org:", organizationId);
     }).sort({ endedAt: -1 }); // get the latest
 
     if (!subscription) {
-      return res.status(403).json({ error: "No active subscription found", message: "No active subscription found" });
+      return res.status(401).json({ error: "No active subscription found", message: "No active subscription found" });
     }
 
     // Check expiry
@@ -25,7 +25,7 @@ console.log("Checking subscription for org:", organizationId);
     if (subscription.endedAt < now) {
       // Auto update status to expired
       await Subscription.findByIdAndUpdate(subscription._id, { status: "expired" });
-      return res.status(403).json({ error: "Subscription expired" ,message:"Subscription expired"});
+      return res.status(401).json({ error: "Subscription expired" ,message:"Subscription expired"});
     }
 
     // ✅ Subscription is valid → allow API call

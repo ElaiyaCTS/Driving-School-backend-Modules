@@ -2,6 +2,7 @@
 import express from "express";
 import userController from "../controllers/learnerController.js";
 import jwtAuth from "../middlewares/jwtMiddleware.js";
+import checkSubscription from '../middlewares/checkSubscription.js';
 import multer from "multer";
 import ROLE from "../util/roleGroups.js";
 
@@ -24,19 +25,19 @@ const fileFields = [
 router.post(
   "/create-Learner",
   upload.fields(fileFields), // Add this middleware
- jwtAuth(ROLE.adminLevel),
+ jwtAuth(ROLE.adminLevel),checkSubscription,
   userController.createLearner
 );
 // get all data
-router.get("/", jwtAuth(ROLE.branchTeam), userController.getAllLearners);
+router.get("/", jwtAuth(ROLE.branchTeam), checkSubscription, userController.getAllLearners);
 
 // get single data
-router.get("/:_id", jwtAuth(ROLE.everyone), userController.getLearnersById);
+router.get("/:_id", jwtAuth(ROLE.everyone),checkSubscription, userController.getLearnersById);
 
 // UPDATE
-router.put("/:admissionNumber",jwtAuth(ROLE.everyone),upload.fields(fileFields), userController.updateLearner);
+router.put("/:admissionNumber",jwtAuth(ROLE.everyone) , checkSubscription,upload.fields(fileFields), userController.updateLearner);
 
 // DELETE
-router.delete("/:_id",jwtAuth(ROLE.systemAdmins), userController.deleteLearner);
+router.delete("/:_id",jwtAuth(ROLE.systemAdmins),checkSubscription, userController.deleteLearner);
 
 export default router;

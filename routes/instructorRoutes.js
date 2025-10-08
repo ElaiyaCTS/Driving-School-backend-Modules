@@ -3,6 +3,7 @@ import express from "express";
 // import exadminController from "../controllers/exadminController.js";
 import userController from "../controllers/InstructorController.js";
 import jwtAuth from "../middlewares/jwtMiddleware.js";
+import checkSubscription from '../middlewares/checkSubscription.js';
 import multer from "multer";
 import ROLE from "../util/roleGroups.js";
 
@@ -18,20 +19,20 @@ const fileFieldsInstead = [
 ];
 
 router.post(
-  "/create-Instructor",jwtAuth(ROLE.everyone),
+  "/create-Instructor",jwtAuth(ROLE.everyone),checkSubscription,
   upload.fields(fileFieldsInstead), // Add this middleware
   userController.createInstructor
 );
 // get all data
-router.get("/",jwtAuth(ROLE.everyone), userController.getAllInstructors);
+router.get("/",jwtAuth(ROLE.everyone),      checkSubscription,        userController.getAllInstructors);
 
 // get single data
-router.get("/:_id",jwtAuth(ROLE.everyone), userController.getInstructorById);
+router.get("/:_id",jwtAuth(ROLE.everyone),     checkSubscription,      userController.getInstructorById);
 
 // UPDATE
-router.put("/:instructorId",jwtAuth(ROLE.everyone),upload.fields(fileFieldsInstead),userController.updateInstructor);
+router.put("/:instructorId",jwtAuth(ROLE.everyone),checkSubscription,  upload.fields(fileFieldsInstead),userController.updateInstructor);
 
 // DELETE
-router.delete("/:_id",jwtAuth(ROLE.everyone), userController.deleteInstructor);
+router.delete("/:_id",jwtAuth(ROLE.everyone),checkSubscription, userController.deleteInstructor);
 
 export default router;
