@@ -39,7 +39,7 @@ const login = async (req, res) => {
     if (!userinfo)
       return res.status(400).json({ message: "User info not found" });
     // console.log('====================================');
-    console.log(userinfo);
+    // console.log(userinfo);
     // console.log('====================================');
     // 4️⃣ Prepare JWT payload (exclude photo for Owner)
   
