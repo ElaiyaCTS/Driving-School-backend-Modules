@@ -12,18 +12,18 @@ import checkSubscription from "../middlewares/checkSubscription.js";
 const router = express.Router();
 
 // Create
-router.post("/",jwtAuth(ROLE.systemAdmins),  createPlan);
+router.post("/",jwtAuth(ROLE.superUsers),  createPlan);
 
 // Get All
-router.get("/",jwtAuth(ROLE.systemAdmins), getPlans);
+router.get("/",jwtAuth(ROLE.superUsers), getPlans);
 
 // Get by planId
-router.get("/:planId",jwtAuth(ROLE.systemAdmins), getPlanById);
+router.get("/:planId",jwtAuth(ROLE.superUsers), getPlanById);
 
 // Update by planId
-router.put("/:planId",jwtAuth(ROLE.systemAdmins), updatePlan);
+router.put("/:planId",jwtAuth(ROLE.superUsers), updatePlan);
 
 // Delete by planId
-router.delete("/:planId",jwtAuth(ROLE.systemAdmins), deletePlan);
+router.delete("/:planId",jwtAuth(ROLE.superUsers), deletePlan);
 
 export default router;
