@@ -12,7 +12,7 @@ import Subscription from "../models/SubscriptionSchema.js";
 // login user
 const login = async (req, res) => {
   const { username, password } = req.body; // removed role
-  console.log('username, password:', username,  password)
+//   console.log('username, password:', username,  password)
 
   try {
     // 🔹 Find user by username or mobileNumber AND ensure active: true

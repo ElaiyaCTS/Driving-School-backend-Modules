@@ -4,7 +4,7 @@ import Subscription from "../models/SubscriptionSchema.js"; // import your Subsc
 const checkSubscription = async (req, res, next) => {
   try {
     const { organizationId } = req.user; // assuming JWT already attaches org/user info
-console.log("Checking subscription for org:", organizationId);
+// console.log("Checking subscription for org:", organizationId);
 
     if (!organizationId) {
       return res.status(401).json({ error: "Organization ID missing in token" ,message:"Organization ID missing in token"});
