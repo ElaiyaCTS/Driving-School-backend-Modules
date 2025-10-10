@@ -78,10 +78,14 @@ const login = async (req, res) => {
       subscription: subscriptionInfo,
     };
 
-    if (user.role !== "Owner") {
+    if (user.role) {
       payload.photo = userinfo.photo;
       payload.branchId = userinfo.branchId;
     }
+    // if (user.role !== "Owner") {
+    //   payload.photo = userinfo.photo;
+    //   payload.branchId = userinfo.branchId;
+    // }
     // 🔹 Create JWT token
     const token = jwt.sign(payload, process.env.JWT_SECRET, {
       expiresIn: "1d",
@@ -106,14 +110,19 @@ const login = async (req, res) => {
       Name: userinfo.fullName,
       organizationId: userinfo.organizationId,
       subscription: subscriptionInfo,
-
+     photo : userinfo.photo,
     };
 
     if (user.role !== "Owner") {
-      responseUser.photo = userinfo.photo;
+    //   responseUser.photo = userinfo.photo;
       responseUser.branchId = userinfo.branchId;
       
     }
+    // if (user.role !== "Owner") {
+    //   responseUser.photo = userinfo.photo;
+    //   responseUser.branchId = userinfo.branchId;
+      
+    // }
 
     return res.status(200).json({
       message: "Login successful",
