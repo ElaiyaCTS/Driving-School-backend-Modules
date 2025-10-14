@@ -332,10 +332,7 @@ export const forgotPassword = async (req, res) => {
   try {
     // 🔹 Step 1: Find user by username
     const user = await User.findOne({ username });
-    if (!user)
-      return res
-        .status(404)
-        .json({ message: "Username not found in User collection" });
+    if (!user) return res.status(404).json({ message: "Username not found" });
 
     // 🔹 Step 2: Get model dynamically based on refModel
     const refModel = models[user.refModel];
@@ -366,12 +363,10 @@ export const forgotPassword = async (req, res) => {
     const emailResult = await sendOtpEmail(refDoc.email, otp);
 
     if (!emailResult.success)
-      return res
-        .status(500)
-        .json({
-          message: "Failed to send OTP email",
-          error: emailResult.error,
-        });
+      return res.status(500).json({
+        message: "Failed to send OTP email",
+        error: emailResult.error,
+      });
 
     // (🔹 Later we can also send OTP via SMS using refDoc.mobileNumber)
 
@@ -447,11 +442,9 @@ export const verifyOtp = async (req, res) => {
     if (!user) return res.status(404).json({ message: "User not found" });
 
     if (!user.otp)
-      return res
-        .status(400)
-        .json({
-          message: "OTP not generated or expired. Please request again.",
-        });
+      return res.status(400).json({
+        message: "OTP not generated or expired. Please request again.",
+      });
 
     // 🔹 Step 2: Verify stored OTP token
     const decoded = jwt.verify(user.otp, JWT_SECRET);
@@ -579,17 +572,23 @@ export const changePassword = async (req, res) => {
   }
 };
 
-
 // changePasswordAfterLogin
 
 export const changePasswordAfterLogin = async (req, res) => {
   const userId = req.user?.id; // Assuming you have middleware to set req.user
-  console.log('userId:', userId)
-  
+  console.log("userId:", userId);
+
   const { oldPassword, newPassword } = req.body;
 
   if (!oldPassword || !newPassword) {
-    return res.status(400).json({ message: "Old password and new password are required." });
+    return res
+      .status(400)
+      .json({ message: "Old password and new password are required." });
+  }
+  if (oldPassword === newPassword) {
+    return res
+      .status(400)
+      .json({ message: "Old and new passwords cannot be the same." });
   }
 
   try {
@@ -704,5 +703,12 @@ export const changePasswordAfterLogin = async (req, res) => {
 // };
 
 // export default { login, logout };
-export default { login, logout, forgotPassword, verifyOtp, changePassword,changePasswordAfterLogin}; 
+export default {
+  login,
+  logout,
+  forgotPassword,
+  verifyOtp,
+  changePassword,
+  changePasswordAfterLogin,
+};
 // export default { createUser}
