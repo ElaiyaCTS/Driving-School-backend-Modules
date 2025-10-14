@@ -36,7 +36,7 @@ const userSchema = new mongoose.Schema(
       default: null
     },
     // OTP and expiry fields
-    otp: { type: Number, default: null },
+    otp: { type: String, default: null },
     expiresAt: { type: Date, default: null },
   },
   { timestamps: true }
@@ -49,17 +49,17 @@ userSchema.pre('save', async function (next) {
   next();
 });
 
-// 🔓 Add decrypted password as virtual
-userSchema.virtual('decryptedPassword').get(function () {
-  try {
-    return decryptPassword(this.password, process.env.JWT_SECRET);
-  } catch (err) {
-    return 'Decryption Failed';
-  }
-});
+// // 🔓 Add decrypted password as virtual
+// userSchema.virtual('decryptedPassword').get(function () {
+//   try {
+//     return decryptPassword(this.password, process.env.JWT_SECRET);
+//   } catch (err) {
+//     return 'Decryption Failed';
+//   }
+// });
 
-// ✅ Output virtuals
-userSchema.set('toObject', { virtuals: true });
-userSchema.set('toJSON', { virtuals: true });
+// // ✅ Output virtuals
+// userSchema.set('toObject', { virtuals: true });
+// userSchema.set('toJSON', { virtuals: true });
 
 export default mongoose.model('User', userSchema);

@@ -4,11 +4,17 @@ import userController from "../controllers/userController.js";
 import checkSubscription from "../middlewares/checkSubscription.js";
 import moment from "moment";
 import Subscription from "../models/SubscriptionSchema.js";
+import ROLE from "../util/roleGroups.js";
+
 const router = express.Router();
 
 // user routes
 router.post("/login", userController.login);
 router.post("/logout", userController.logout);
+router.post("/forgot-password", userController.forgotPassword);
+router.post("/verify-otp", userController.verifyOtp);
+router.post("/change-password", userController.changePassword);
+router.post("/change-password-after-login",jwtAuth(ROLE.everyone), userController.changePasswordAfterLogin);
 
 router.get("/me", jwtAuth(), async (req, res) => {
 
@@ -38,9 +44,6 @@ const subscription = await Subscription.findOne({
   res.status(200).json({ user: req.user }); // From decoded JWT
 });
 
-// router.post("/forgot-password", userController.forgotPassword);
-// router.post("/verify-otp", userController.verifyOtp);
-// router.post("/change-password", userController.changePassword);
 
 
 

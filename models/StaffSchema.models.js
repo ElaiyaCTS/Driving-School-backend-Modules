@@ -19,6 +19,13 @@ const StaffSchema = new mongoose.Schema(
       unique: true,
       match: /^[0-9]{10}$/, // Regex for a 10-digit phone number
     },
+     email: {
+    type: String,
+    // required: [true, 'Email is required'],
+    unique: true,
+    trim: true,
+    lowercase: true,
+  },
     dateOfBirth: {
       trim: true,
       type: Date,

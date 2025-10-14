@@ -11,6 +11,13 @@ const learnerSchema = new mongoose.Schema(
       trim: true,
       match: /^[0-9]{10}$/,
     },
+     email: {
+    type: String,
+    required: [true, 'Email is required'],
+    unique: true,
+    trim: true,
+    lowercase: true,
+  },
     dateOfBirth: { type: Date, required: [true, "dateOfBirth is required."], trim: true },
     gender: { type: String, enum: ["Male", "Female", "Other"], required: [true, "gender is required."], trim: true,},
    bloodGroup: { type: String, required: [true, "bloodGroup is required."], trim: true },

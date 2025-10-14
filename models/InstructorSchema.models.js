@@ -19,6 +19,13 @@ const instructorSchema = new mongoose.Schema({
     trim: true,
     match: [/^[0-9]{10}$/, 'Mobile Number must be 10 digits'],
   },
+   email: {
+    type: String,
+    required: [true, 'Email is required'],
+    unique: true,
+    trim: true,
+    lowercase: true,
+  },
   dateOfBirth: {
     type: Date,
     required: [true, 'Date of Birth is required'],
